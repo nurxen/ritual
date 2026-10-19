@@ -40,11 +40,11 @@ function semana(root) {
         <span style="font-size:11px;font-weight:700">${DOW[parseDay(x.d).getDay()]}</span></div>`).join('')}</div>
     </section>
     ${rows.length ? `<div class="grid2">
-      <section class="card"><h3 style="color:#3F8F5A">Lo mejor</h3>${rows.slice(0, 3).map(r => `<p class="small">${esc(r.c.icon)} ${esc(r.c.name)} <b>${r.n}/7</b></p>`).join('')}</section>
-      <section class="card"><h3 style="color:#C2475B">A mejorar</h3>${rows.slice(-3).reverse().map(r => `<p class="small">${esc(r.c.icon)} ${esc(r.c.name)} <b>${r.n}/7</b></p>`).join('')}</section>
+      <section class="card"><h3 style="--c:#A8D5B5;color:var(--c-ink)">Lo mejor</h3>${rows.slice(0, 3).map(r => `<p class="small">${esc(r.c.icon)} ${esc(r.c.name)} <b>${r.n}/7</b></p>`).join('')}</section>
+      <section class="card"><h3 style="--c:#EFA3AE;color:var(--c-ink)">A mejorar</h3>${rows.slice(-3).reverse().map(r => `<p class="small">${esc(r.c.icon)} ${esc(r.c.name)} <b>${r.n}/7</b></p>`).join('')}</section>
     </div>` : ''}
     <div class="section-head"><h2>La semana que viene</h2></div>
-    <section class="card list">${next.length ? next.map(x => `<div class="li" style="--c:${CARE_GROUP_COLORS[x.i.data.group] || '#7A7068'}"><span class="swatch-dot"></span><span class="grow">${esc(x.i.data.group === 'ipl' ? 'IPL ' + x.i.data.name : x.i.data.name)}</span><span class="small muted">${x.st.next <= today() ? 'ya' : fmtShort(x.st.next)}</span></div>`).join('') : '<p class="muted small" style="padding:8px">Nada programado.</p>'}</section>
+    <section class="card list">${next.length ? next.map(x => `<div class="li" style="--c:${CARE_GROUP_COLORS[x.i.data.group] || '#CFC7BE'}"><span class="swatch-dot"></span><span class="grow">${esc(x.i.data.group === 'ipl' ? 'IPL ' + x.i.data.name : x.i.data.name)}</span><span class="small muted">${x.st.next <= today() ? 'ya' : fmtShort(x.st.next)}</span></div>`).join('') : '<p class="muted small" style="padding:8px">Nada programado.</p>'}</section>
     ${exp.length ? `<section class="card flat"><h3>⏳ Caducan pronto</h3><p class="small">${exp.map(x => esc(x.p.data.name)).join(', ')}</p></section>` : ''}`;
 }
 
@@ -109,10 +109,10 @@ function ejercicio(root) {
         <div class="goal-chip"><b>${num(st.crossfit + st.correr + st.casa)}′</b><span>minutos</span></div>
         <div class="goal-chip"><b>${num(st.km, 1)}</b><span>km</span></div></div>
     </section>
-    <section class="card" style="--c:#E4572E"><h3>Por tipo este mes</h3>
+    <section class="card" style="--c:#F4A988"><h3>Por tipo este mes</h3>
       ${[['crossfit', 'CrossFit'], ['correr', 'Correr'], ['casa', 'En casa']].map(([k, l]) => `<div class="hbar"><span>${l}</span><div class="bar"><i style="width:${st[k] / mx * 100}%"></i></div><span class="small">${st[k]}′</span></div>`).join('')}
       <p class="small muted mt">${st.sweat} entrenos muy sudorosos este mes.</p></section>
-    <section class="card" style="--c:#E4572E"><h3>Minutos por semana</h3>
+    <section class="card" style="--c:#F4A988"><h3>Minutos por semana</h3>
       <div style="display:flex;gap:6px;align-items:flex-end;height:110px">${weeks.map((w, i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
         <span style="font-size:11px;font-weight:700">${w || ''}</span><div style="width:100%;height:${Math.max(3, w / wmx * 80)}px;background:var(--c);opacity:${i === 7 ? 1 : .55};border-radius:6px"></div></div>`).join('')}</div>
       <p class="small muted">Últimas 8 semanas; la última es la actual.</p></section>`;
@@ -133,13 +133,13 @@ function datos(root) {
     <section class="card">${corr.length ? corr.map(x => {
       const up = x.diff > 0;
       const amount = x.t.type === 'scale' ? `${up ? '+' : '−'}${num(Math.abs(x.diff), 1)}` : `${up ? '+' : '−'}${Math.round(Math.abs(x.rel) * 100)}%`;
-      return `<div class="insight" style="--c:${up ? '#3F8F5A' : '#C2475B'}"><span class="delta">${amount}</span><span class="small">Tu <b>${esc(x.t.name.toLowerCase())}</b> es ${up ? 'más alto' : 'más bajo'} los días con <b>${esc(x.dr.name.toLowerCase())}</b>. <span class="muted">(${x.n} días)</span></span></div>`;
+      return `<div class="insight" style="--c:${up ? '#A8D5B5' : '#EFA3AE'}"><span class="delta">${amount}</span><span class="small">Tu <b>${esc(x.t.name.toLowerCase())}</b> es ${up ? 'más alto' : 'más bajo'} los días con <b>${esc(x.dr.name.toLowerCase())}</b>. <span class="muted">(${x.n} días)</span></span></div>`;
     }).join('') + '<p class="small muted mt-s">Son relaciones, no causas: tómalas como pistas.</p>'
       : '<p class="muted small">Cuando lleves un par de semanas apuntando ánimo, energía o estado de la piel junto a tus hábitos, aquí verás cosas como “tu piel está mejor los días que duermes 8 h”.</p>'}</section>
     <div class="section-head"><h2>Dinero</h2></div>
     <div class="grid2">
-      ${spend ? `<section class="card" style="--c:#D49A1C"><p class="small muted">Gasto del día, ${MONTHS[parseDay(today()).getMonth()]}</p><p class="kpis" style="display:block;margin:0"><b style="font-family:var(--display);font-size:30px;font-weight:850;font-stretch:70%;color:var(--c)">${eur(sumSpend(month))}</b></p><p class="small muted">mes pasado ${eur(sumSpend(prev))}</p></section>` : ''}
-      <section class="card" style="--c:#D4627F"><p class="small muted">Cuidado personal</p><p style="margin:0"><b style="font-family:var(--display);font-size:30px;font-weight:850;font-stretch:70%;color:var(--c)">${eur(careSpend(month))}</b></p><p class="small muted">mes pasado ${eur(careSpend(prev))}</p></section>
+      ${spend ? `<section class="card" style="--c:#F2CF7E"><p class="small muted">Gasto del día, ${MONTHS[parseDay(today()).getMonth()]}</p><p class="kpis" style="display:block;margin:0"><b style="font-family:var(--display);font-size:30px;font-weight:850;font-stretch:70%;color:var(--c-ink)">${eur(sumSpend(month))}</b></p><p class="small muted">mes pasado ${eur(sumSpend(prev))}</p></section>` : ''}
+      <section class="card" style="--c:#F2A9BC"><p class="small muted">Cuidado personal</p><p style="margin:0"><b style="font-family:var(--display);font-size:30px;font-weight:850;font-stretch:70%;color:var(--c-ink)">${eur(careSpend(month))}</b></p><p class="small muted">mes pasado ${eur(careSpend(prev))}</p></section>
     </div>
     ${spend ? `<p class="small muted">Días sin gastar este mes: <b>${[...S.entries.values()].filter(e => e.category_id === spend.id && e.day.startsWith(month) && Number(e.value?.amount) === 0).length}</b></p>` : ''}`;
 }

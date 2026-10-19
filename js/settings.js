@@ -22,7 +22,7 @@ export function openMenu() {
     </div>
     <h3 class="mt">Apariencia</h3>
     <div class="seg mt-s">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button class="${theme === k ? 'on' : ''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
-    <p class="small muted center">Ritual v2 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
+    <p class="small muted center">Ritual v3 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
     $$('[data-go]', body).forEach(a => a.addEventListener('click', () => closeSheet()));
     $$('[data-theme-set]', body).forEach(b => b.onclick = () => {
       localStorage.setItem('ritual_theme', b.dataset.themeSet); applyTheme();
@@ -70,14 +70,14 @@ async function calendarPage(view) {
   const n = upcomingEvents(90).length;
   view.innerHTML = `${topbar()}
     <a class="back" href="#/agenda">${icon('left')} Agenda</a>
-    <div class="page-banner" style="--c:#3D5BC9"><h1>Google Calendar</h1><p>Lleva tus fechas de cuidado, tareas y objetivos a tu calendario.</p></div>
+    <div class="page-banner" style="--c:#A7BCEB"><h1>Google Calendar</h1><p>Lleva tus fechas de cuidado, tareas y objetivos a tu calendario.</p></div>
 
     <section class="card">
       <h3>1. Suscripción automática</h3>
       <p class="small">Tu calendario se actualiza solo con lo que vayas registrando: IPL, raíces, mascarillas, peluquería, tareas con fecha… Google lo refresca cada pocas horas (no al instante).</p>
       ${live ? `
         <div class="stack mt-s">
-          <a class="btn color" style="--c:#3D5BC9" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">Añadir a Google Calendar</a>
+          <a class="btn color" style="--c:#A7BCEB" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">Añadir a Google Calendar</a>
           <a class="btn ghost" href="${esc(webcal)}">Añadir a Calendario de iPhone</a>
           <button class="btn ghost" id="copyFeed">${icon('copy')} Copiar enlace</button>
         </div>
@@ -114,7 +114,7 @@ function categoriesPage(view) {
     <div class="page-title"><h1>Mis hábitos</h1></div>
     <button class="btn primary block" id="newCat">${icon('plus')} Crear hábito</button>
     <p class="small muted mt-s">Apaga el interruptor para ocultar un hábito de Hoy sin perder su historial. Toca uno para editarlo, moverlo o borrarlo.</p>
-    ${secs.map(sec => `<div class="section-head" style="--c:${sectionColor(sec)}"><h2 style="color:var(--c)">${esc(sec)}</h2></div>
+    ${secs.map(sec => `<div class="section-head" style="--c:${sectionColor(sec)}"><h2 style="color:var(--c-ink)">${esc(sec)}</h2></div>
       <div class="card list" style="--c:${sectionColor(sec)}">${S.cats.filter(c => c.section === sec).map(c => `
         <div class="cat-row ${c.active ? '' : 'off'}">
           <button class="row gap grow" data-ed="${c.id}" style="text-align:left"><span class="ci">${esc(c.icon)}</span>
@@ -122,7 +122,7 @@ function categoriesPage(view) {
           <label class="switch" aria-label="Activo"><input type="checkbox" data-act="${c.id}" ${c.active ? 'checked' : ''}><i></i></label>
         </div>`).join('')}</div>`).join('')}
     ${missing.length ? `<div class="section-head"><h2>Ideas para añadir</h2></div>
-      ${missSecs.map(sec => `<p class="small muted" style="margin:10px 2px 6px;font-weight:700;color:${sectionColor(sec)}">${esc(sec)}</p>
+      ${missSecs.map(sec => `<p class="small muted" style="margin:10px 2px 6px;font-weight:700;--c:${sectionColor(sec)};color:var(--c-ink)">${esc(sec)}</p>
       <div class="chips">${missing.filter(c => c.section === sec).map(c => `<button class="chip" data-addk="${c.key}">${c.icon} ${esc(c.name)} ${icon('plus')}</button>`).join('')}</div>`).join('')}` : ''}`;
   $$('[data-act]', view).forEach(b => b.onchange = async () => { const c = S.cats.find(x => x.id === b.dataset.act); await saveCategory({ id: c.id, active: b.checked }); rerender(); });
   $$('[data-ed]', view).forEach(b => b.onclick = () => catWizard(S.cats.find(x => x.id === b.dataset.ed)));

@@ -47,10 +47,10 @@ export const SECTIONS = ['Movimiento', 'Cuerpo', 'Suplementos', 'Cuidado', 'Ment
 
 // Cada área tiene su color (como las colecciones de una marca de cosmética)
 export const SECTION_COLORS = {
-  'Movimiento': '#E4572E', 'Cuerpo': '#5E8C4A', 'Suplementos': '#7C6AD6', 'Cuidado': '#D4627F',
-  'Mente': '#3D5BC9', 'Casa y dinero': '#D49A1C', 'Notas': '#7A7068',
+  'Movimiento': '#F4A988', 'Cuerpo': '#A8C99A', 'Suplementos': '#BDB2F0', 'Cuidado': '#F2A9BC',
+  'Mente': '#A7BCEB', 'Casa y dinero': '#F2CF7E', 'Notas': '#CFC7BE',
 };
-const EXTRA_COLORS = ['#2E8C8C', '#B8673A', '#9B5BBF', '#4A7FB5', '#A8862F', '#C2475B'];
+const EXTRA_COLORS = ['#96D1CC', '#E8B796', '#D3AEE6', '#A9C8E8', '#E3CF94', '#EFA3AE'];
 export const sectionColor = s => SECTION_COLORS[s] || EXTRA_COLORS[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % EXTRA_COLORS.length];
 
 export const TYPE_INFO = {
@@ -106,7 +106,7 @@ export const CARE_GROUPS = {
   maquillaje: 'Maquillaje', unas: 'Uñas', barba: 'Barba', tinte: 'Tinte',
 };
 export const CARE_GROUP_COLORS = {
-  ipl: '#9B5BBF', piel: '#D4627F', cuerpo: '#C98A6B', pelo: '#2E8C8C', maquillaje: '#C2475B', unas: '#B97FA0', barba: '#6B7A8C', tinte: '#B8673A',
+  ipl: '#D3AEE6', piel: '#F2A9BC', cuerpo: '#EDC2A8', pelo: '#96D1CC', maquillaje: '#EFA3AE', unas: '#E4B9D1', barba: '#B8C2CE', tinte: '#E8B796',
 };
 
 // ---- Tinte ----
@@ -237,7 +237,7 @@ export const SOURCES = {
 
 export const GUIDE = [
   {
-    id: 'rutina', lead: 'Qué va primero, mañana y noche, con tus productos.', color: '#D4627F', title: 'Tu rutina facial, en orden', icon: '🫧',
+    id: 'rutina', lead: 'Qué va primero, mañana y noche, con tus productos.', color: '#F2A9BC', title: 'Tu rutina facial, en orden', icon: '🫧',
     body: [
       '<b>Mañana:</b> Sébium (limpiador suave) → sérum Glow de niacinamida → Hydro Boost → contorno de ojos → SPF 50+ siempre al final.',
       '<b>Noche:</b> CeraVe con ácido salicílico → Niacinamida 10% de The Ordinary → contorno → crema de noche → vaselina como último paso (si quieres "slugging").',
@@ -249,7 +249,7 @@ export const GUIDE = [
     src: ['aad_routine', 'aad_acne'],
   },
   {
-    id: 'exfoliar', lead: 'Por qué tu cara ya está bien exfoliada.', color: '#C98A6B', title: 'Exfoliar: química mejor que física', icon: '🧪',
+    id: 'exfoliar', lead: 'Por qué tu cara ya está bien exfoliada.', color: '#EDC2A8', title: 'Exfoliar: química mejor que física', icon: '🧪',
     body: [
       'En piel mixta-grasa o con tendencia a granitos, lo recomendado es un exfoliante <b>químico suave</b> en vez de gránulos que rasquen.',
       'Tú <b>ya exfolias</b> con el limpiador de ácido salicílico (BHA), que entra en el poro. No añadas exfoliantes de gránulos en la cara.',
@@ -259,7 +259,7 @@ export const GUIDE = [
     src: ['aad_exfol'],
   },
   {
-    id: 'cycling', lead: 'Cuándo dar descanso a la piel.', color: '#7C6AD6', title: 'Skin cycling y días de descanso', icon: '🔄',
+    id: 'cycling', lead: 'Cuándo dar descanso a la piel.', color: '#BDB2F0', title: 'Skin cycling y días de descanso', icon: '🔄',
     body: [
       'Ahora mismo no usas retinoides ni ácidos que se dejen puestos, así que no necesitas un ciclo estricto: tu salicílico se aclara.',
       'Si algún día añades retinol, el esquema clásico de 4 noches es: 1) exfoliante, 2) retinoide, 3) y 4) solo hidratación y reparación.',
@@ -269,7 +269,7 @@ export const GUIDE = [
     src: ['aad_exfol'],
   },
   {
-    id: 'spf', lead: 'Todos los días, también en invierno.', color: '#D49A1C', title: 'Protector solar', icon: '☀️',
+    id: 'spf', lead: 'Todos los días, también en invierno.', color: '#F2CF7E', title: 'Protector solar', icon: '☀️',
     body: [
       'Todos los días, también en invierno y nublado. Cantidad: generosa para cara, cuello y orejas.',
       'Reaplica cada 2 horas si estás al aire libre, y después de sudar mucho o nadar.',
@@ -278,7 +278,7 @@ export const GUIDE = [
     src: ['aad_sun'],
   },
   {
-    id: 'ipl', lead: 'Fases, tiempos y qué hacer con el sol.', color: '#9B5BBF', title: 'Philips Lumea: cómo y cuándo', icon: '✨',
+    id: 'ipl', lead: 'Fases, tiempos y qué hacer con el sol.', color: '#D3AEE6', title: 'Philips Lumea: cómo y cuándo', icon: '✨',
     body: [
       '<b>Fase inicial:</b> 4 sesiones, una cada 2 semanas. <b>Mantenimiento:</b> una cada 4 semanas.',
       'Si te saltas una sesión en mantenimiento, puedes seguir o reiniciar la fase inicial. <b>En tu caso</b> (1 sesión y 4 meses de pausa) lo sensato es <b>empezar de nuevo la fase inicial</b>.',
@@ -291,7 +291,7 @@ export const GUIDE = [
     src: ['lumea_freq', 'lumea_prep'],
   },
   {
-    id: 'pelo', lead: 'Rizado y fino: lavado, peinados y CrossFit.', color: '#2E8C8C', title: 'Pelo rizado y fino', icon: '🌊',
+    id: 'pelo', lead: 'Rizado y fino: lavado, peinados y CrossFit.', color: '#96D1CC', title: 'Pelo rizado y fino', icon: '🌊',
     body: [
       'Tu frecuencia (cada 2 días) está bien. En días de CrossFit muy sudoroso sin tocar lavado: aclara el cuero cabelludo con agua y pon acondicionador solo en medios y puntas.',
       'El champú va al cuero cabelludo; el acondicionador, a medios y puntas. En pelo fino, poca cantidad de crema para no apelmazar.',
@@ -302,12 +302,12 @@ export const GUIDE = [
     src: ['aad_hair_habits', 'aad_styling', 'aad_hairstyles'],
   },
   {
-    id: 'cuerpo', lead: 'Ducha rápida después del Box.', color: '#E4572E', title: 'Cuerpo y post-Box', icon: '🤍',
+    id: 'cuerpo', lead: 'Ducha rápida después del Box.', color: '#F4A988', title: 'Cuerpo y post-Box', icon: '🤍',
     body: POST_GYM_PROTOCOL,
     src: ['aad_routine'],
   },
   {
-    id: 'tinte', lead: 'Teñir sin estropear tus rizos.', color: '#B8673A', title: 'Tinte de pelo', icon: '🎨',
+    id: 'tinte', lead: 'Teñir sin estropear tus rizos.', color: '#E8B796', title: 'Tinte de pelo', icon: '🎨',
     body: [
       '<b>Prueba de alergia 48 h antes</b> de usar el tinte, siguiendo las instrucciones de la caja. Las reacciones pueden tardar hasta 72 h en salir.',
       'Si notas picor, ardor, hinchazón o sarpullido, no te tiñas y consulta a un dermatólogo. Usa siempre guantes y no dejes el tinte más tiempo del que indica.',
@@ -320,7 +320,7 @@ export const GUIDE = [
     src: ['aad_color', 'nhs_dye'],
   },
   {
-    id: 'pao', lead: 'Cuánto dura cada bote abierto.', color: '#7A7068', title: 'Caducidad (PAO)', icon: '⏳',
+    id: 'pao', lead: 'Cuánto dura cada bote abierto.', color: '#CFC7BE', title: 'Caducidad (PAO)', icon: '⏳',
     body: [
       'El tarrito abierto con "6M", "12M"… indica los meses que dura el producto <b>desde que lo abres</b>.',
       'Apunta la fecha de apertura en Inventario y la app te avisa 30 días antes.',

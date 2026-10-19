@@ -6,7 +6,7 @@ import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays,
 import { ENGLISH_IDEAS, sectionColor } from './data.js';
 import { topbar, rerender, habitSheet } from './app.js';
 
-const MIND = '#3D5BC9';
+const MIND = '#A7BCEB';
 export function renderMente(view, sub = 'foco') {
   if (!['foco', 'ingles', 'objetivos'].includes(sub)) sub = 'foco';
   view.innerHTML = `${topbar()}
@@ -36,10 +36,10 @@ function foco(root) {
   const week = c => Array.from({ length: 7 }, (_, i) => minsOf(c, addDays(today(), -i))).reduce((a, b) => a + b, 0);
   root.innerHTML = cats.length ? `
     <section class="card plan timer">
-      <div class="chips" style="justify-content:center">${cats.map(c => `<button class="chip ${c.id === selId ? 'on' : ''}" data-sel="${c.id}" style="${c.id === selId ? 'background:#F3F0EB;color:#1B1A17;border-color:#F3F0EB' : 'background:transparent;color:#F3F0EB;border-color:rgba(255,255,255,.25)'}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
+      <div class="chips" style="justify-content:center">${cats.map(c => `<button class="chip ${c.id === selId ? 'on' : ''}" data-sel="${c.id}" style="${c.id === selId ? 'background:#F3F0EB;color:#3A3734;border-color:#F3F0EB' : 'background:transparent;color:#F3F0EB;border-color:rgba(255,255,255,.25)'}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
       <div class="t-big" id="clock">${fmt(elapsed())}</div>
       <div class="row gap" style="justify-content:center">
-        ${t?.running ? `<button class="btn" id="pause" style="background:#F3F0EB;color:#1B1A17">${icon('pause')} Pausa</button>` : `<button class="btn" id="start" style="background:#F3F0EB;color:#1B1A17">${icon('play')} ${t ? 'Seguir' : 'Empezar'}</button>`}
+        ${t?.running ? `<button class="btn" id="pause" style="background:#F3F0EB;color:#3A3734">${icon('pause')} Pausa</button>` : `<button class="btn" id="start" style="background:#F3F0EB;color:#3A3734">${icon('play')} ${t ? 'Seguir' : 'Empezar'}</button>`}
         ${t ? '<button class="btn" id="stop" style="background:rgba(255,255,255,.12);color:#F3F0EB">Terminar y guardar</button>' : ''}
       </div>
       <p class="note-line center">Al terminar, los minutos se suman a tu registro de hoy.</p>

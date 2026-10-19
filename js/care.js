@@ -11,15 +11,15 @@ import {
 import { topbar, rerender } from './app.js';
 
 const PAGES = {
-  rutinas: { t: 'Rutinas', e: '🫧', c: '#D4627F', d: 'Mañana, noche y post-Box' },
-  ipl: { t: 'IPL', e: '✨', c: '#9B5BBF', d: 'Philips Lumea por zonas' },
-  tinte: { t: 'Tinte', e: '🎨', c: '#B8673A', d: 'Color, raíces e historial' },
-  calendarios: { t: 'Calendarios', e: '🗓️', c: '#2E8C8C', d: 'Mascarillas, brochas, uñas…' },
-  inventario: { t: 'Inventario', e: '🧴', c: '#4A4540', d: 'Caducidad, compra y gasto' },
-  perfumes: { t: 'Perfumes', e: '🌸', c: '#C2475B', d: 'Biblioteca y layering' },
-  looks: { t: 'Looks', e: '💄', c: '#D49A1C', d: 'Maquillaje guardado' },
-  viaje: { t: 'Neceser', e: '🧳', c: '#3D5BC9', d: 'Lista para viajar' },
-  guia: { t: 'Guía', e: '📖', c: '#5E8C4A', d: 'Consejos de dermatólogos' },
+  rutinas: { t: 'Rutinas', e: '🫧', c: '#F2A9BC', d: 'Mañana, noche y post-Box' },
+  ipl: { t: 'IPL', e: '✨', c: '#D3AEE6', d: 'Philips Lumea por zonas' },
+  tinte: { t: 'Tinte', e: '🎨', c: '#E8B796', d: 'Color, raíces e historial' },
+  calendarios: { t: 'Calendarios', e: '🗓️', c: '#96D1CC', d: 'Mascarillas, brochas, uñas…' },
+  inventario: { t: 'Inventario', e: '🧴', c: '#D6CFC6', d: 'Caducidad, compra y gasto' },
+  perfumes: { t: 'Perfumes', e: '🌸', c: '#EFA3AE', d: 'Biblioteca y layering' },
+  looks: { t: 'Looks', e: '💄', c: '#F2CF7E', d: 'Maquillaje guardado' },
+  viaje: { t: 'Neceser', e: '🧳', c: '#A7BCEB', d: 'Lista para viajar' },
+  guia: { t: 'Guía', e: '📖', c: '#A8C99A', d: 'Consejos de dermatólogos' },
 };
 
 export function renderCare(view, sub, sub2) {
@@ -494,7 +494,7 @@ function guia(root, topic) {
   if (g) {
     root.innerHTML = `
       <a class="back" href="#/cuidado/guia">${icon('left')} Todos los temas</a>
-      <div class="row gap mb"><span class="big-emoji">${g.icon}</span><h2 style="color:${g.color}">${esc(g.title)}</h2></div>
+      <div class="row gap mb"><span class="big-emoji">${g.icon}</span><h2 style="--c:${g.color};color:var(--c-ink)">${esc(g.title)}</h2></div>
       <div style="--c:${g.color}">${g.body.map(b => `<div class="tipcard">${b}</div>`).join('')}</div>
       ${g.src.length ? `<div class="sources">Fuentes:${g.src.map(k => `<a href="${SOURCES[k].u}" target="_blank" rel="noopener">${esc(SOURCES[k].t)}</a>`).join('')}</div>` : ''}`;
     return;

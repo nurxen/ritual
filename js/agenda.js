@@ -15,7 +15,7 @@ export function gcalLink(ev) {
   });
   return `https://calendar.google.com/calendar/render?${p}`;
 }
-const evColor = ev => ev.kind === 'care' ? (CARE_GROUP_COLORS[ev.group] || '#7A7068') : ev.kind === 'goal' ? '#D49A1C' : '#3D5BC9';
+const evColor = ev => ev.kind === 'care' ? (CARE_GROUP_COLORS[ev.group] || '#CFC7BE') : ev.kind === 'goal' ? '#F2CF7E' : '#A7BCEB';
 
 export function renderAgenda(view, sub = 'calendario') {
   view.innerHTML = `${topbar()}
@@ -46,8 +46,8 @@ function calendario(root) {
       else lv = Math.ceil(dayCompletion(ds) * 4);
     }
     const mk = [];
-    logs.filter(l => l.data.day === ds).slice(0, 2).forEach(l => mk.push(`<i class="mk" style="--c:${CARE_GROUP_COLORS[l.data.group] || '#7A7068'}"></i>`));
-    if (period && getVal(period.id, ds)) mk.push('<i class="mk" style="--c:#C2475B"></i>');
+    logs.filter(l => l.data.day === ds).slice(0, 2).forEach(l => mk.push(`<i class="mk" style="--c:${CARE_GROUP_COLORS[l.data.group] || '#CFC7BE'}"></i>`));
+    if (period && getVal(period.id, ds)) mk.push('<i class="mk" style="--c:#EFA3AE"></i>');
     evs.filter(e => e.day === ds).slice(0, 2).forEach(e => mk.push(`<i class="mk" style="--c:${evColor(e)}"></i>`));
     cells.push(`<button class="cday l${lv} ${ds === today() ? 'today' : ''} ${future ? 'future' : ''}" data-day="${ds}"><span>${d}</span><span class="mks">${mk.slice(0, 3).join('')}</span></button>`);
   }
@@ -60,7 +60,7 @@ function calendario(root) {
         ${cats.map(c => `<option value="${c.id}" ${c.id === calCat ? 'selected' : ''}>Color: ${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
       <div class="cal-head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span>${d}</span>`).join('')}</div>
       <div class="cal">${cells.join('')}</div>
-      <div class="legend"><span><i class="mk" style="--c:${CARE_GROUP_COLORS.ipl}"></i>IPL</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.pelo}"></i>Pelo</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.tinte}"></i>Tinte</span>${period ? '<span><i class="mk" style="--c:#C2475B"></i>Periodo</span>' : ''}<span><i class="mk" style="--c:#3D5BC9"></i>Tarea</span></div>
+      <div class="legend"><span><i class="mk" style="--c:${CARE_GROUP_COLORS.ipl}"></i>IPL</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.pelo}"></i>Pelo</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.tinte}"></i>Tinte</span>${period ? '<span><i class="mk" style="--c:#EFA3AE"></i>Periodo</span>' : ''}<span><i class="mk" style="--c:#A7BCEB"></i>Tarea</span></div>
       <p class="small muted mt-s">Toca un día pasado para ver o editar sus hábitos.</p>
     </section>
     <div class="section-head"><h2>Próximos 30 días</h2><a href="#/ajustes/calendario">Google Calendar</a></div>
@@ -77,7 +77,7 @@ function calendario(root) {
 }
 
 // ------------------------------------------------------------ TAREAS
-const PRIOS = [['urgente', '🔴', 'No posponer', '#C2475B'], ['importante', '🟠', 'Importantes', '#D49A1C'], ['pequena', '🟢', 'Pequeñas', '#5E8C4A']];
+const PRIOS = [['urgente', '🔴', 'No posponer', '#EFA3AE'], ['importante', '🟠', 'Importantes', '#F2CF7E'], ['pequena', '🟢', 'Pequeñas', '#A8C99A']];
 let showDone = false;
 function tareas(root) {
   const list = tasks();
@@ -96,7 +96,7 @@ function tareas(root) {
     </form>
     ${PRIOS.map(([k, e, l, c]) => {
       const ts = open.filter(t => t.data.prio === k);
-      return `<div class="prio-head" style="color:${c}">${e} ${l} <span class="muted">${ts.length}</span></div><div class="card list">${ts.map(line).join('') || '<p class="muted small" style="padding:8px">Nada por aquí.</p>'}</div>`;
+      return `<div class="prio-head" style="--c:${c};color:var(--c-ink)">${e} ${l} <span class="muted">${ts.length}</span></div><div class="card list">${ts.map(line).join('') || '<p class="muted small" style="padding:8px">Nada por aquí.</p>'}</div>`;
     }).join('')}
     ${done.length ? `<button class="btn ghost block mt" id="tgDone">${showDone ? 'Ocultar' : 'Ver'} completadas (${done.length})</button>
     ${showDone ? `<div class="card list mt-s">${done.slice(0, 50).map(line).join('')}</div>` : ''}` : ''}`;

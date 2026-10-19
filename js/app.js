@@ -25,7 +25,7 @@ export function applyTheme() {
   if (t === 'auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', t);
   const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#121110' : '#F5F3EF');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#2B2927' : '#F7F5F2');
 }
 
 // ---------------- Arranque ----------------
@@ -89,7 +89,7 @@ export function renderPicker() {
 }
 
 // ---------------- Editor de perfil ----------------
-const SWATCHES = ['#D4627F', '#E4572E', '#D49A1C', '#5E8C4A', '#2E8C8C', '#3D5BC9', '#7C6AD6', '#9B5BBF', '#B8673A', '#1B1A17'];
+const SWATCHES = ['#F2A9BC', '#F4A988', '#F2CF7E', '#A8C99A', '#96D1CC', '#A7BCEB', '#BDB2F0', '#D3AEE6', '#E8B796', '#CFC7BE'];
 export function profileEditor() {
   const p = S.profile; const s = settings();
   const focusOpts = activeCats().filter(c => ['minutes', 'bool_minutes'].includes(c.type));
@@ -154,7 +154,7 @@ function renderOnboarding() {
       <form id="obForm">
         ${SECTIONS.map(sec => {
           const items = CATALOG.filter(c => c.section === sec);
-          return `<div class="section-head" style="--c:${sectionColor(sec)}"><h2 style="color:var(--c)">${sec}</h2></div><div class="card list">${items.map(c => `
+          return `<div class="section-head" style="--c:${sectionColor(sec)}"><h2 style="color:var(--c-ink)">${sec}</h2></div><div class="card list">${items.map(c => `
             <label class="check-row"><input type="checkbox" name="cats" data-multi="1" value="${c.key}" ${t.cats.includes(c.key) ? 'checked' : ''}>
             <span class="ci">${c.icon}</span><span class="grow">${esc(c.name)}</span></label>`).join('')}</div>`;
         }).join('')}
@@ -367,16 +367,16 @@ function alertCards() {
   const dueZ = zones.filter(z => careStatus(z).due);
   if (dueZ.length) {
     const block = iplBlock(); const restart = dueZ.some(z => careStatus(z).restart);
-    out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${block.length ? '#C2475B' : CARE_GROUP_COLORS.ipl}"><div class="rc-top">${block.length ? '🔒' : '✨'}<span>IPL</span></div>
+    out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${block.length ? '#EFA3AE' : CARE_GROUP_COLORS.ipl}"><div class="rc-top">${block.length ? '🔒' : '✨'}<span>IPL</span></div>
       <b>${dueZ.map(z => esc(z.data.name)).join(', ')}</b><span>${block.length ? esc(block[0].msg) : restart ? 'Toca reiniciar la fase inicial.' : 'Te toca sesión.'}</span></a>`);
   }
   itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => out.push(`
-    <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#7A7068'}"><div class="rc-top">${esc(i.data.icon)}<span>${careStatus(i).label}</span></div>
+    <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#CFC7BE'}"><div class="rc-top">${esc(i.data.icon)}<span>${careStatus(i).label}</span></div>
       <b>${esc(i.data.name)}</b><button class="btn tiny" data-care="${i.id}">Hecho</button></div>`));
   const exp = products().map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30).sort((a, b) => a.e.days - b.e.days);
-  if (exp.length) out.push(`<a class="rcard" href="#/cuidado/inventario" style="--c:#7A7068"><div class="rc-top">⏳<span>${exp.length}</span></div><b>Caducan pronto</b><span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} (${x.e.days < 0 ? 'caducado' : relDay(x.e.exp)})`).join(', ')}</span></a>`);
+  if (exp.length) out.push(`<a class="rcard" href="#/cuidado/inventario" style="--c:#CFC7BE"><div class="rc-top">⏳<span>${exp.length}</span></div><b>Caducan pronto</b><span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} (${x.e.days < 0 ? 'caducado' : relDay(x.e.exp)})`).join(', ')}</span></a>`);
   const warns = [...checkRoutine('am'), ...checkRoutine('pm')].filter(r => r.level === 'warn');
-  if (warns.length) out.push(`<a class="rcard" href="#/cuidado/rutinas" style="--c:#C2475B"><div class="rc-top">⚠️</div><b>Revisa tu rutina</b><span>${esc(warns[0].msg)}</span></a>`);
+  if (warns.length) out.push(`<a class="rcard" href="#/cuidado/rutinas" style="--c:#EFA3AE"><div class="rc-top">⚠️</div><b>Revisa tu rutina</b><span>${esc(warns[0].msg)}</span></a>`);
   const ex = S.cats.find(c => c.type === 'exercise' && c.active); const hw = catByKey('hair_wash');
   if (ex && hw && getVal(ex.id, today())?.sweat && !getVal(hw.id, today())) {
     const last = [0, 1, 2, 3].map(n => addDays(today(), -n)).find(d => getVal(hw.id, d));
