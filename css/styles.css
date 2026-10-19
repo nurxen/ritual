@@ -3,18 +3,18 @@
    Tipos: Archivo (titulares estrechos) · Manrope (texto) · Instrument Serif (citas)
    ===================================================================== */
 :root {
-  --paper: #F5F3EF;
+  --paper: #F8F6F2;
   --surface: #FFFFFF;
-  --ink: #282622;             /* Gris oscuro neutro en vez de negro */
-  --ink-2: #423E38;           /* Gris oscuro secundario suavizado */
-  --muted: #6F6A63;
-  --line: #E4E0DA;
-  --soft: #ECE8E2;
-  --gold: #A88A58;            /* Dorado desaturado */
-  --warn: #AC4B5A;            /* Rojo/alerta menos brillante */
-  --ok: #4A835D;              /* Verde desaturado equilibrado */
-  --c: #282622;               /* Alineado con el nuevo gris oscuro */
-  --pc: #BA9D90;              /* Tono arcilla/perfil desaturado */
+  --ink: #33312E;              /* Cambiado de #1B1A17 a un gris oscuro suave */
+  --ink-2: #4D4A45;            /* Gris medio-oscuro suavizado */
+  --muted: #827E77;            /* Muted más claro y grisáceo */
+  --line: #EAE7E2;
+  --soft: #F0ECE6;
+  --gold: #C2AB80;             /* Dorado pastel suavizado */
+  --warn: #D67A86;             /* Rojo/rosado pastel más desaturado */
+  --ok: #73A984;               /* Verde pastel suave */
+  --c: #33312E;                /* Sincronizado con el nuevo --ink (gris oscuro) */
+  --pc: #D4BDB2;               /* Perfil más suave y abizcochado pastel */
   --r-lg: 26px; --r: 18px; --r-sm: 12px;
   --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif;
   --body: 'Manrope', system-ui, -apple-system, sans-serif;
