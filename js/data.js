@@ -32,9 +32,10 @@ export const CATALOG = [
   { key: 'scalp', name: 'Cuidado del cuero cabelludo', icon: '💆', type: 'bool', section: 'Cuidado' },
 
   { key: 'reading', name: 'He leído', icon: '📖', type: 'bool_minutes', section: 'Mente' },
-  { key: 'art_study', name: 'Algo artístico o estudiar', icon: '🎨', type: 'bool_minutes', section: 'Mente' },
+  { key: 'study', name: 'Estudiar', icon: '📚', type: 'minutes', section: 'Mente', target: 30 },
+  { key: 'art', name: 'Algo artístico', icon: '🎨', type: 'bool_minutes', section: 'Mente' },
   { key: 'english', name: 'Inglés', icon: '🇬🇧', type: 'minutes', section: 'Mente', target: 20 },
-  { key: 'project', name: 'Mi proyecto', icon: '📚', type: 'minutes', section: 'Mente', target: 30 },
+  { key: 'project', name: 'Proyecto personal', icon: '🚀', type: 'minutes', section: 'Mente', target: 30 },
 
   { key: 'bed', name: 'He hecho la cama', icon: '🛏️', type: 'bool', section: 'Casa y dinero' },
   { key: 'spend', name: 'Gasto del día', icon: '💶', type: 'money', section: 'Casa y dinero', unit: '€' },
@@ -43,6 +44,27 @@ export const CATALOG = [
 ];
 
 export const SECTIONS = ['Movimiento', 'Cuerpo', 'Suplementos', 'Cuidado', 'Mente', 'Casa y dinero', 'Notas'];
+
+// Cada área tiene su color (como las colecciones de una marca de cosmética)
+export const SECTION_COLORS = {
+  'Movimiento': '#E4572E', 'Cuerpo': '#5E8C4A', 'Suplementos': '#7C6AD6', 'Cuidado': '#D4627F',
+  'Mente': '#3D5BC9', 'Casa y dinero': '#D49A1C', 'Notas': '#7A7068',
+};
+const EXTRA_COLORS = ['#2E8C8C', '#B8673A', '#9B5BBF', '#4A7FB5', '#A8862F', '#C2475B'];
+export const sectionColor = s => SECTION_COLORS[s] || EXTRA_COLORS[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % EXTRA_COLORS.length];
+
+export const TYPE_INFO = {
+  bool: { icon: '✓', label: 'Sí / no', desc: 'Lo has hecho o no.', ex: 'Hacer la cama, retenedores' },
+  number: { icon: '#', label: 'Número', desc: 'Una cantidad con meta opcional.', ex: 'Pasos, vasos de agua' },
+  scale: { icon: '◔', label: 'Escala 1–5', desc: 'Cómo ha ido, del 1 al 5.', ex: 'Ánimo, estado de la piel' },
+  minutes: { icon: '⏱', label: 'Minutos', desc: 'Tiempo dedicado, con meta.', ex: 'Estudiar, inglés' },
+  bool_minutes: { icon: '✓⏱', label: 'Sí + minutos', desc: 'Lo has hecho y cuánto tiempo.', ex: 'Leer, dibujar' },
+  money: { icon: '€', label: 'Dinero', desc: 'Cuánto y en qué.', ex: 'Gasto del día' },
+  text: { icon: '✎', label: 'Nota', desc: 'Texto libre.', ex: 'Diario, gratitud' },
+  exercise: { icon: '🏋️', label: 'Ejercicio', desc: 'Tipo, minutos, km, intensidad.', ex: 'CrossFit, correr' },
+};
+
+export const EMOJIS = ['✨', '💧', '🥗', '🌙', '☀️', '🧴', '🫧', '🤍', '💊', '🥄', '🏃', '🏋️', '🧘', '🚶', '🚴', '🏊', '📖', '📚', '🎨', '🎸', '✍️', '🧠', '🇬🇧', '💻', '🛏️', '🧹', '🪴', '🐶', '💶', '🛒', '📵', '☕', '🍎', '🥛', '🍫', '🚭', '🦷', '💅', '💆', '🪒', '🌸', '❤️', '😊', '🙏', '📞', '🎯', '⏰', '🌿'];
 
 export const TYPES = {
   bool: 'Sí / no',
@@ -72,27 +94,37 @@ export const CARE_CATALOG = [
   { key: 'hair_cut', group: 'pelo', name: 'Sanear puntas (peluquería)', icon: '✂️', interval: 90 },
   { key: 'brushes', group: 'maquillaje', name: 'Lavar brochas y esponjas', icon: '🖌️', interval: 7 },
   { key: 'nails', group: 'unas', name: 'Manicura limpia (casa o cita)', icon: '💅', interval: 14 },
+  { key: 'dye_roots', group: 'tinte', name: 'Retoque de raíces', icon: '🎨', interval: 42,
+    tip: 'Haz la prueba de alergia 48 h antes. Programa el IPL de cara para otro día.' },
+  { key: 'dye_gloss', group: 'tinte', name: 'Baño de brillo / matizador', icon: '💫', interval: 21 },
   { key: 'beard_trim', group: 'barba', name: 'Recortar barba', icon: '🪒', interval: 7 },
   { key: 'barber', group: 'pelo', name: 'Peluquería / barbería', icon: '✂️', interval: 30 },
 ];
 
 export const CARE_GROUPS = {
   ipl: 'Depilación IPL', piel: 'Piel', cuerpo: 'Cuerpo', pelo: 'Pelo',
-  maquillaje: 'Maquillaje', unas: 'Uñas', barba: 'Barba',
+  maquillaje: 'Maquillaje', unas: 'Uñas', barba: 'Barba', tinte: 'Tinte',
 };
+export const CARE_GROUP_COLORS = {
+  ipl: '#9B5BBF', piel: '#D4627F', cuerpo: '#C98A6B', pelo: '#2E8C8C', maquillaje: '#C2475B', unas: '#B97FA0', barba: '#6B7A8C', tinte: '#B8673A',
+};
+
+// ---- Tinte ----
+export const DYE_TYPES = ['Permanente', 'Semipermanente', 'Mechas / balayage', 'Decoloración', 'Baño de color / matizador', 'Henna / vegetal'];
+export const DYE_PLACES = ['En casa', 'Peluquería'];
 
 // ---- Plantillas de inicio ----------------------------------------------
 const ALL = CATALOG.map(c => c.key);
 export const TEMPLATES = {
   completa_f: {
     label: 'Completa (chica)',
-    cats: ALL.filter(k => !['shave', 'scalp'].includes(k)),
+    cats: ALL.filter(k => !['shave', 'scalp', 'project'].includes(k)),
     care: ['ipl_axilas', 'ipl_ingles', 'ipl_piernas', 'ipl_brazos', 'ipl_cara', 'face_mask', 'body_scrub',
-      'hair_mask', 'hair_oil', 'hair_cut', 'brushes', 'nails'],
+      'hair_mask', 'hair_oil', 'hair_cut', 'brushes', 'nails', 'dye_roots'],
   },
   completa_m: {
     label: 'Completa (chico)',
-    cats: ALL.filter(k => !['period', 'hair_wash'].includes(k)),
+    cats: ALL.filter(k => !['period', 'hair_wash', 'project'].includes(k)),
     care: ['face_mask', 'body_scrub', 'beard_trim', 'barber'],
   },
   basica: {
@@ -198,12 +230,14 @@ export const SOURCES = {
   aad_hair_habits: { t: 'AAD · Hábitos que dañan el pelo', u: 'https://www.aad.org/public/everyday-care/hair-scalp-care/hair/habits-that-damage-hair' },
   aad_styling: { t: 'AAD · Peinar sin dañar', u: 'https://www.aad.org/public/diseases/hair-loss/hair-care/styling' },
   aad_sun: { t: 'AAD · Errores comunes con el protector solar', u: 'https://www.aad.org/public/everyday-care/sun-protection/shade-clothing-sunscreen/common-sunscreen-mistakes' },
+  aad_color: { t: 'AAD · Consejos para teñir el pelo', u: 'https://www.aad.org/public/everyday-care/hair-scalp-care/hair/coloring-perming-tips' },
+  nhs_dye: { t: 'NHS · Reacciones al tinte', u: 'https://www.nhs.uk/conditions/hair-dye-reactions' },
   aad_acne: { t: 'AAD · Tratamiento del acné adulto', u: 'https://www.aad.org/public/diseases/acne/diy/adult-acne-treatment' },
 };
 
 export const GUIDE = [
   {
-    id: 'rutina', title: 'Tu rutina facial, en orden', icon: '🫧',
+    id: 'rutina', lead: 'Qué va primero, mañana y noche, con tus productos.', color: '#D4627F', title: 'Tu rutina facial, en orden', icon: '🫧',
     body: [
       '<b>Mañana:</b> Sébium (limpiador suave) → sérum Glow de niacinamida → Hydro Boost → contorno de ojos → SPF 50+ siempre al final.',
       '<b>Noche:</b> CeraVe con ácido salicílico → Niacinamida 10% de The Ordinary → contorno → crema de noche → vaselina como último paso (si quieres "slugging").',
@@ -215,7 +249,7 @@ export const GUIDE = [
     src: ['aad_routine', 'aad_acne'],
   },
   {
-    id: 'exfoliar', title: 'Exfoliar: química mejor que física', icon: '🧪',
+    id: 'exfoliar', lead: 'Por qué tu cara ya está bien exfoliada.', color: '#C98A6B', title: 'Exfoliar: química mejor que física', icon: '🧪',
     body: [
       'En piel mixta-grasa o con tendencia a granitos, lo recomendado es un exfoliante <b>químico suave</b> en vez de gránulos que rasquen.',
       'Tú <b>ya exfolias</b> con el limpiador de ácido salicílico (BHA), que entra en el poro. No añadas exfoliantes de gránulos en la cara.',
@@ -225,7 +259,7 @@ export const GUIDE = [
     src: ['aad_exfol'],
   },
   {
-    id: 'cycling', title: 'Skin cycling y días de descanso', icon: '🔄',
+    id: 'cycling', lead: 'Cuándo dar descanso a la piel.', color: '#7C6AD6', title: 'Skin cycling y días de descanso', icon: '🔄',
     body: [
       'Ahora mismo no usas retinoides ni ácidos que se dejen puestos, así que no necesitas un ciclo estricto: tu salicílico se aclara.',
       'Si algún día añades retinol, el esquema clásico de 4 noches es: 1) exfoliante, 2) retinoide, 3) y 4) solo hidratación y reparación.',
@@ -235,7 +269,7 @@ export const GUIDE = [
     src: ['aad_exfol'],
   },
   {
-    id: 'spf', title: 'Protector solar', icon: '☀️',
+    id: 'spf', lead: 'Todos los días, también en invierno.', color: '#D49A1C', title: 'Protector solar', icon: '☀️',
     body: [
       'Todos los días, también en invierno y nublado. Cantidad: generosa para cara, cuello y orejas.',
       'Reaplica cada 2 horas si estás al aire libre, y después de sudar mucho o nadar.',
@@ -244,7 +278,7 @@ export const GUIDE = [
     src: ['aad_sun'],
   },
   {
-    id: 'ipl', title: 'Philips Lumea: cómo y cuándo', icon: '✨',
+    id: 'ipl', lead: 'Fases, tiempos y qué hacer con el sol.', color: '#9B5BBF', title: 'Philips Lumea: cómo y cuándo', icon: '✨',
     body: [
       '<b>Fase inicial:</b> 4 sesiones, una cada 2 semanas. <b>Mantenimiento:</b> una cada 4 semanas.',
       'Si te saltas una sesión en mantenimiento, puedes seguir o reiniciar la fase inicial. <b>En tu caso</b> (1 sesión y 4 meses de pausa) lo sensato es <b>empezar de nuevo la fase inicial</b>.',
@@ -257,7 +291,7 @@ export const GUIDE = [
     src: ['lumea_freq', 'lumea_prep'],
   },
   {
-    id: 'pelo', title: 'Pelo rizado y fino', icon: '🌊',
+    id: 'pelo', lead: 'Rizado y fino: lavado, peinados y CrossFit.', color: '#2E8C8C', title: 'Pelo rizado y fino', icon: '🌊',
     body: [
       'Tu frecuencia (cada 2 días) está bien. En días de CrossFit muy sudoroso sin tocar lavado: aclara el cuero cabelludo con agua y pon acondicionador solo en medios y puntas.',
       'El champú va al cuero cabelludo; el acondicionador, a medios y puntas. En pelo fino, poca cantidad de crema para no apelmazar.',
@@ -268,12 +302,25 @@ export const GUIDE = [
     src: ['aad_hair_habits', 'aad_styling', 'aad_hairstyles'],
   },
   {
-    id: 'cuerpo', title: 'Cuerpo y post-Box', icon: '🤍',
+    id: 'cuerpo', lead: 'Ducha rápida después del Box.', color: '#E4572E', title: 'Cuerpo y post-Box', icon: '🤍',
     body: POST_GYM_PROTOCOL,
     src: ['aad_routine'],
   },
   {
-    id: 'pao', title: 'Caducidad (PAO)', icon: '⏳',
+    id: 'tinte', lead: 'Teñir sin estropear tus rizos.', color: '#B8673A', title: 'Tinte de pelo', icon: '🎨',
+    body: [
+      '<b>Prueba de alergia 48 h antes</b> de usar el tinte, siguiendo las instrucciones de la caja. Las reacciones pueden tardar hasta 72 h en salir.',
+      'Si notas picor, ardor, hinchazón o sarpullido, no te tiñas y consulta a un dermatólogo. Usa siempre guantes y no dejes el tinte más tiempo del que indica.',
+      'Quédate a <b>tres tonos o menos</b> de tu color natural: aclarar más exige más oxidante y daña más. Los tonos más oscuros son más suaves con el pelo.',
+      'El pelo rizado y fino sufre más con la decoloración: puede perder definición. Si quieres aclarar mucho, mejor en peluquería y espaciando sesiones.',
+      'Protege el pelo teñido del sol (sombrero o gorra) para que el color dure más.',
+      'Retoque de raíces cada 4–6 semanas aprox. La app te avisa y guarda tu historial de tonos y marcas.',
+      'No hagas IPL en la cara el mismo día que te tiñes: cada cosa en su día para no irritar la piel.',
+    ],
+    src: ['aad_color', 'nhs_dye'],
+  },
+  {
+    id: 'pao', lead: 'Cuánto dura cada bote abierto.', color: '#7A7068', title: 'Caducidad (PAO)', icon: '⏳',
     body: [
       'El tarrito abierto con "6M", "12M"… indica los meses que dura el producto <b>desde que lo abres</b>.',
       'Apunta la fecha de apertura en Inventario y la app te avisa 30 días antes.',
@@ -310,6 +357,7 @@ export const DEFAULT_SETTINGS = {
   exerciseGoal: 45,   // minutos
   projectGoal: 30,    // minutos
   projectName: 'tu proyecto',
+  focusKey: 'study',  // qué categoría es la línea 📚 del plan de Hoy
   freeTime: 120,      // minutos disponibles por defecto
   lat: 40.4168, lon: -3.7038, city: 'Madrid',
 };

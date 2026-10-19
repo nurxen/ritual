@@ -1,4 +1,4 @@
-// Sección Cuidado: rutinas, IPL, calendarios, inventario, perfumes, looks, viaje, guía
+// Sección Cuidado: portada con accesos y páginas (rutinas, IPL, tinte, calendarios, inventario, perfumes, looks, viaje, guía)
 import {
   S, itemsOf, addItem, saveItem, deleteItem, careStatus, markCareDone, iplBlock, lastWorkout, products,
   productExpiry, routineProducts, checkRoutine, tagsFromIngredients, settings, saveSettings, catByKey, getVal, setVal,
@@ -6,24 +6,63 @@ import {
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
 import {
   SAMPLE_PRODUCTS, SAMPLE_PERFUMES, SAMPLE_COMBOS, PERFUME_MOMENTS, TAG_LABELS, GUIDE, SOURCES, POST_GYM_PROTOCOL,
-  CARE_CATALOG, CARE_GROUPS,
+  CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES,
 } from './data.js';
-import { header, bindHeader, rerender } from './app.js';
+import { topbar, rerender } from './app.js';
 
-const SUBS = [
-  ['rutinas', 'Rutinas'], ['ipl', 'IPL'], ['calendarios', 'Calendarios'], ['inventario', 'Inventario'],
-  ['perfumes', 'Perfumes'], ['looks', 'Looks'], ['viaje', 'Viaje'], ['guia', 'Guía'],
-];
+const PAGES = {
+  rutinas: { t: 'Rutinas', e: '🫧', c: '#D4627F', d: 'Mañana, noche y post-Box' },
+  ipl: { t: 'IPL', e: '✨', c: '#9B5BBF', d: 'Philips Lumea por zonas' },
+  tinte: { t: 'Tinte', e: '🎨', c: '#B8673A', d: 'Color, raíces e historial' },
+  calendarios: { t: 'Calendarios', e: '🗓️', c: '#2E8C8C', d: 'Mascarillas, brochas, uñas…' },
+  inventario: { t: 'Inventario', e: '🧴', c: '#4A4540', d: 'Caducidad, compra y gasto' },
+  perfumes: { t: 'Perfumes', e: '🌸', c: '#C2475B', d: 'Biblioteca y layering' },
+  looks: { t: 'Looks', e: '💄', c: '#D49A1C', d: 'Maquillaje guardado' },
+  viaje: { t: 'Neceser', e: '🧳', c: '#3D5BC9', d: 'Lista para viajar' },
+  guia: { t: 'Guía', e: '📖', c: '#5E8C4A', d: 'Consejos de dermatólogos' },
+};
 
-export function renderCare(view, sub = 'rutinas') {
-  if (!SUBS.some(([k]) => k === sub)) sub = 'rutinas';
-  view.innerHTML = `${header('Cuidado', 'Clean girl, sin complicaciones')}
-    <nav class="subnav">${SUBS.map(([k, l]) => `<a href="#/cuidado/${k}" class="${k === sub ? 'on' : ''}">${l}</a>`).join('')}</nav>
-    <div id="careBody"></div>`;
-  bindHeader(view);
+export function renderCare(view, sub, sub2) {
+  if (!PAGES[sub]) return hub(view);
+  const P = PAGES[sub];
+  view.innerHTML = `${topbar()}
+    <a class="back" href="#/cuidado">${icon('left')} Cuidado</a>
+    <div class="page-banner" style="--c:${P.c}"><h1>${P.t}</h1><p>${P.d}</p></div>
+    <div id="careBody" style="--c:${P.c}"></div>`;
   const body = $('#careBody', view);
-  ({ rutinas, ipl, calendarios, inventario, perfumes, looks, viaje, guia })[sub](body);
-  $('.subnav a.on', view)?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  ({ rutinas, ipl, tinte, calendarios, inventario, perfumes, looks, viaje, guia })[sub](body, sub2);
+}
+
+function hub(view) {
+  const am = catByKey('am_routine'); const pm = catByKey('pm_routine');
+  const zones = itemsOf('care').filter(i => i.data.group === 'ipl');
+  const zDue = zones.filter(z => careStatus(z).due).length;
+  const block = iplBlock().length;
+  const care = itemsOf('care').filter(i => !['ipl', 'tinte'].includes(i.data.group));
+  const cDue = care.filter(i => careStatus(i).due).length;
+  const exp = products().filter(p => (productExpiry(p)?.days ?? 999) <= 30).length;
+  const dyes = itemsOf('dye').sort((a, b) => b.data.day.localeCompare(a.data.day));
+  const roots = itemsOf('care').find(i => i.data.key === 'dye_roots');
+  const status = {
+    rutinas: am || pm ? `Mañana ${am && getVal(am.id, today()) ? '✓' : '·'}  Noche ${pm && getVal(pm.id, today()) ? '✓' : '·'}` : `${products().length} productos`,
+    ipl: zones.length ? (zDue ? (block ? 'Toca, pero hoy no' : `${zDue} zonas tocan`) : 'Al día') : 'Sin zonas',
+    tinte: dyes.length ? `Último ${relDay(dyes[0].data.day)}` : 'Sin registros',
+    calendarios: cDue ? `${cDue} pendientes` : `${care.length} activos`,
+    inventario: exp ? `${exp} caducan pronto` : `${products().filter(p => !p.data.finished).length} en uso`,
+    perfumes: `${itemsOf('perfume').length} perfumes`,
+    looks: `${itemsOf('combo').filter(c => c.data.type === 'look').length} looks`,
+    viaje: 'Calcula cantidades',
+    guia: `${GUIDE.length} temas`,
+  };
+  const badge = { ipl: zDue, calendarios: cDue, inventario: exp, tinte: roots && careStatus(roots).due ? 1 : 0 };
+  const tileH = (k, cls = '') => `<a class="hub-tile ${cls}" href="#/cuidado/${k}" style="--c:${PAGES[k].c}">
+      ${badge[k] ? `<span class="h-badge">${badge[k]}</span>` : ''}<span class="h-emoji">${PAGES[k].e}</span><b>${PAGES[k].t}</b><span>${status[k]}</span></a>`;
+  view.innerHTML = `${topbar()}
+    <div class="page-title"><h1>Cuidado</h1></div>
+    <div class="hub">
+      ${tileH('rutinas', 'wide')}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
+      ${tileH('perfumes')}${tileH('looks')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
+    </div>`;
 }
 
 // ------------------------------------------------------------------ RUTINAS
@@ -36,7 +75,7 @@ function rutinas(root) {
     const done = cat && getVal(cat.id, today());
     return `<section class="card">
       <div class="row between"><h3>${title}</h3>${cat ? `<button class="btn tiny ${done ? 'primary' : 'ghost'}" data-done="${cat.id}">${done ? '✓ Hecha' : 'Marcar hecha'}</button>` : ''}</div>
-      ${list.length ? `<ol class="steps">${list.map(p => `<li><b>${esc(p.data.type || '')}</b> · ${esc(p.data.name)}${p.data.brand ? ` <span class="muted small">${esc(p.data.brand)}</span>` : ''}</li>`).join('')}</ol>`
+      ${list.length ? `<ol class="steps">${list.map(p => `<li><span><b>${esc(p.data.type || '')}</b><br>${esc(p.data.name)}${p.data.brand ? ` <span class="muted small">${esc(p.data.brand)}</span>` : ''}</span></li>`).join('')}</ol>`
         : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
       ${rules.length ? rules.map(r => `<p class="note ${r.level}">${r.level === 'warn' ? '⚠️' : 'ℹ️'} ${esc(r.msg)}</p>`).join('')
         : list.length ? '<p class="note ok">✓ Rutina compatible: sin combinaciones irritantes.</p>' : ''}
@@ -73,10 +112,10 @@ function ipl(root) {
   root.innerHTML = `
     <section class="card ipl-status ${block.length ? 'blocked' : 'ok'}">
       <div class="row gap center">${block.length ? icon('lock', 'big') : '<span class="big-emoji">✨</span>'}
-        <div><h3>${block.length ? 'Hoy no es buen momento' : 'Puedes hacer IPL'}</h3>
-        <p class="small muted">Philips Lumea 9000 · ${zones.length} zonas</p></div></div>
+        <div><h2>${block.length ? 'Hoy no es buen momento' : 'Puedes hacer IPL'}</h2>
+        <p class="small">Philips Lumea 9000, ${zones.length} zonas</p></div></div>
       ${block.map(b => `<p class="note warn">${esc(b.msg)}</p>`).join('')}
-      ${lw ? `<p class="small muted">Último entreno registrado: ${lw.toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
+      ${lw ? `<p class="small">Último entreno registrado: ${lw.toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
     </section>
 
     <section class="card">
@@ -91,7 +130,7 @@ function ipl(root) {
       ${nextDue ? `<p class="small">Próxima sesión: <b>${nextDue.next <= today() ? 'ya toca' : fmtShort(nextDue.next)}</b></p>` : ''}
     </section>
 
-    <h4 class="sec-title">Zonas</h4>
+    <div class="section-head"><h2>Zonas</h2></div>
     <div class="zones">${zones.map(z => {
       const st = careStatus(z); const d = z.data;
       const total = d.phase === 'mantenimiento' ? 8 : 4;
@@ -168,7 +207,7 @@ function calendarios(root) {
   const groups = [...new Set(all.map(i => i.data.group))];
   const missing = CARE_CATALOG.filter(c => !all.some(i => i.data.key === c.key));
   root.innerHTML = `
-    ${groups.map(g => `<h4 class="sec-title">${esc(CARE_GROUPS[g] || g)}</h4><div class="card list">${all.filter(i => i.data.group === g).map(i => {
+    ${groups.map(g => `<div class="section-head"><h2>${esc(CARE_GROUPS[g] || g)}</h2></div><div class="card list">${all.filter(i => i.data.group === g).map(i => {
       const st = careStatus(i);
       return `<div class="li"><span class="ci">${esc(i.data.icon || '•')}</span>
         <div class="grow"><div>${esc(i.data.name)}</div><div class="small muted">${i.data.group === 'ipl' ? (i.data.phase === 'mantenimiento' ? 'cada 4 semanas' : 'cada 2 semanas') : `cada ${i.data.interval} días`} · última ${i.data.last ? fmtShort(i.data.last) : '—'}</div>
@@ -178,7 +217,7 @@ function calendarios(root) {
         <button class="icon-btn" data-ed="${i.id}" aria-label="Editar">${icon('edit')}</button></div>`;
     }).join('')}</div>`).join('') || '<p class="muted">Sin calendarios todavía.</p>'}
     <div class="row gap mt"><button class="btn primary grow" id="addCare">${icon('plus')} Nuevo calendario</button></div>
-    ${missing.length ? `<h4 class="sec-title">Sugerencias</h4><div class="chips wrap">${missing.map(c => `<button class="chip" data-add="${c.key}">${c.icon} ${esc(c.name)}</button>`).join('')}</div>` : ''}`;
+    ${missing.length ? `<div class="section-head"><h2>Sugerencias</h2></div><div class="chips wrap">${missing.map(c => `<button class="chip" data-add="${c.key}">${c.icon} ${esc(c.name)}</button>`).join('')}</div>` : ''}`;
   $$('[data-ok]', root).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.ok)); toast('Registrado'); rerender(); });
   $$('[data-ed]', root).forEach(b => b.onclick = () => {
     const it = S.items.find(i => i.id === b.dataset.ed);
@@ -236,17 +275,17 @@ function inventario(root) {
   root.innerHTML = `
     <div class="row gap"><button class="btn primary grow" id="addP">${icon('plus')} Producto</button><button class="btn ghost" id="scanP">${icon('scan')} Escanear</button></div>
     ${!list.length ? `<div class="card empty mt"><button class="btn ghost" id="loadSample">Cargar productos de ejemplo</button></div>` : ''}
-    <h4 class="sec-title">En uso (${active.length})</h4>
+    <div class="section-head"><h2>En uso (${active.length})</h2></div>
     <div class="card list">${active.map(row).join('') || '<p class="muted">Nada aún.</p>'}</div>
-    ${shop.length ? `<h4 class="sec-title">Lista de la compra</h4><div class="card">${Object.entries(byStore).map(([st, ps]) => `<p class="small"><b>${esc(st)}</b></p><ul class="tips">${ps.map(p => `<li>${esc(p.data.name)}${p.data.url ? ` · <a href="${esc(p.data.url)}" target="_blank" rel="noopener">enlace</a>` : ''}</li>`).join('')}</ul>`).join('')}</div>` : ''}
-    <h4 class="sec-title">Gasto en cuidado</h4>
+    ${shop.length ? `<div class="section-head"><h2>Lista de la compra</h2></div><div class="card">${Object.entries(byStore).map(([st, ps]) => `<p class="small"><b>${esc(st)}</b></p><ul class="tips">${ps.map(p => `<li>${esc(p.data.name)}${p.data.url ? ` · <a href="${esc(p.data.url)}" target="_blank" rel="noopener">enlace</a>` : ''}</li>`).join('')}</ul>`).join('')}</div>` : ''}
+    <div class="section-head"><h2>Gasto en cuidado</h2></div>
     <div class="card"><p>Este mes: <b>${eur(spentMonth)}</b></p>
       ${done.filter(p => p.data.price && p.data.openedAt && p.data.finishedAt).map(p => {
         const days = Math.max(1, diffDays(p.data.finishedAt, p.data.openedAt));
         return `<p class="small">${esc(p.data.name)}: duró ${days} días · <b>${eur(p.data.price / days * 30)}/mes</b></p>`;
       }).join('') || '<p class="small muted">Cuando marques un producto como terminado (con precio y fecha de apertura), verás cuánto te cuesta al mes y podrás comparar marcas.</p>'}
     </div>
-    ${done.length ? `<h4 class="sec-title">Terminados</h4><div class="card list">${done.map(row).join('')}</div>` : ''}`;
+    ${done.length ? `<div class="section-head"><h2>Terminados</h2></div><div class="card list">${done.map(row).join('')}</div>` : ''}`;
   $('#addP', root).onclick = () => productEdit(null);
   $('#scanP', root).onclick = () => scanBarcode();
   $('#loadSample', root)?.addEventListener('click', loadSamples);
@@ -344,7 +383,7 @@ function perfumes(root) {
       <span class="chips">${(p.data.moments || []).map(m => `<span class="chip small on">${esc(m)}</span>`).join('')}</span>
       ${p.data.note ? `<span class="small">${esc(p.data.note)}</span>` : ''}</button>`).join('') || '<p class="muted">Sin perfumes en este momento.</p>'}</div>
     <button class="btn ghost block mt" id="addPf">${icon('plus')} Perfume</button>
-    <h4 class="sec-title">Combos de layering</h4>
+    <div class="section-head"><h2>Combos de layering</h2></div>
     ${combos.map(comboCard).join('') || '<p class="muted">Aún no hay combos.</p>'}
     <button class="btn ghost block" data-newcombo="layering">${icon('plus')} Combo de layering</button>
     <p class="small muted mt">Truco: el perfume dura más sobre piel hidratada. Pulveriza en cuello, nuca y detrás de las rodillas, sin frotar.</p>`;
@@ -450,11 +489,85 @@ function viaje(root) {
 }
 
 // ------------------------------------------------------------------ GUÍA
-function guia(root) {
+function guia(root, topic) {
+  const g = GUIDE.find(x => x.id === topic);
+  if (g) {
+    root.innerHTML = `
+      <a class="back" href="#/cuidado/guia">${icon('left')} Todos los temas</a>
+      <div class="row gap mb"><span class="big-emoji">${g.icon}</span><h2 style="color:${g.color}">${esc(g.title)}</h2></div>
+      <div style="--c:${g.color}">${g.body.map(b => `<div class="tipcard">${b}</div>`).join('')}</div>
+      ${g.src.length ? `<div class="sources">Fuentes:${g.src.map(k => `<a href="${SOURCES[k].u}" target="_blank" rel="noopener">${esc(SOURCES[k].t)}</a>`).join('')}</div>` : ''}`;
+    return;
+  }
   root.innerHTML = `
-    <p class="small muted">Consejos basados en guías de dermatólogos (Academia Americana de Dermatología) y en las instrucciones de Philips. No sustituyen a una consulta: si tienes brotes fuertes, irritación que no se va o dudas médicas, ve a tu dermatólogo.</p>
-    ${GUIDE.map(g => `<details class="card guide"><summary><span class="ci">${g.icon}</span>${esc(g.title)}</summary>
-      <ul class="tips">${g.body.map(b => `<li>${b}</li>`).join('')}</ul>
-      ${g.src.length ? `<p class="small muted">Fuentes: ${g.src.map(k => `<a href="${SOURCES[k].u}" target="_blank" rel="noopener">${esc(SOURCES[k].t)}</a>`).join(' · ')}</p>` : ''}
-    </details>`).join('')}`;
+    <p class="small muted">Basado en la Academia Americana de Dermatología, el NHS y las instrucciones de Philips. No sustituye a una consulta: si tienes brotes fuertes, irritación que no se va o dudas médicas, ve a tu dermatólogo.</p>
+    <div class="guide-grid mt">${GUIDE.map(x => `<a class="guide-tile" href="#/cuidado/guia/${x.id}" style="--c:${x.color}">
+      <span class="g-emoji">${x.icon}</span><b>${esc(x.title)}</b><span>${esc(x.lead)}</span></a>`).join('')}</div>`;
+}
+
+// ------------------------------------------------------------------ TINTE
+const ROOT_TYPES = ['Permanente', 'Semipermanente', 'Mechas / balayage', 'Decoloración', 'Henna / vegetal'];
+function tinte(root) {
+  const dyes = itemsOf('dye').sort((a, b) => b.data.day.localeCompare(a.data.day));
+  const last = dyes[0];
+  const cals = itemsOf('care').filter(i => i.data.group === 'tinte');
+  const missing = CARE_CATALOG.filter(c => c.group === 'tinte' && !cals.some(i => i.data.key === c.key));
+  const year = today().slice(0, 4);
+  const spent = dyes.filter(d => d.data.day.startsWith(year)).reduce((a, d) => a + (Number(d.data.cost) || 0), 0);
+  root.innerHTML = `
+    <section class="card" style="display:flex;gap:14px;align-items:center">
+      <div style="width:64px;height:64px;border-radius:50%;flex:none;background:${esc(last?.data.color || '#6B4A33')};border:3px solid var(--surface);box-shadow:0 0 0 1.5px var(--line)"></div>
+      <div class="grow">${last ? `<h3>${esc(last.data.shade || last.data.type)}</h3><p class="small muted">${esc(last.data.brand || '')} ${esc(last.data.type)}, ${esc(last.data.place)} · ${relDay(last.data.day)}</p>`
+        : '<h3>Tu color</h3><p class="small muted">Registra tu primer tinte para llevar el historial.</p>'}</div>
+    </section>
+    <button class="btn color block" id="addDye">${icon('plus')} Registrar tinte</button>
+    ${cals.length ? `<div class="section-head"><h2>Próximos</h2></div><div class="card list">${cals.map(i => {
+      const st = careStatus(i);
+      return `<div class="li"><span class="ci">${esc(i.data.icon)}</span><div class="grow"><div>${esc(i.data.name)}</div><div class="small muted">cada ${i.data.interval} días · última ${i.data.last ? fmtShort(i.data.last) : '—'}</div></div><span class="pill ${st.tone}">${st.label}</span></div>`;
+    }).join('')}</div>` : ''}
+    ${missing.length ? `<div class="chips mt">${missing.map(c => `<button class="chip" data-addc="${c.key}">${c.icon} Añadir ${esc(c.name.toLowerCase())}</button>`).join('')}</div>` : ''}
+    ${dyes.length ? `<div class="section-head"><h2>Historial</h2><span class="small muted">${eur(spent)} en ${year}</span></div>
+    <div class="dye-hist">${dyes.map(d => `<button class="dye-card" data-dye="${d.id}" style="--dye:${esc(d.data.color || '#6B4A33')}"><div class="sw"></div><div class="body"><b>${esc(d.data.shade || d.data.type)}</b>
+      <span class="muted">${fmtShort(d.data.day)} · ${esc(d.data.place)}</span>${d.data.cost ? `<br>${eur(d.data.cost)}` : ''}</div></button>`).join('')}</div>` : ''}
+    <a class="card flat" href="#/cuidado/guia/tinte" style="display:block;text-decoration:none;margin-top:14px">
+      <h3>🎨 Antes de teñirte</h3><p class="small">Prueba de alergia 48 h antes, máximo tres tonos de diferencia y cuidado extra con los rizos. Ver la guía completa.</p></a>`;
+  $('#addDye', root).onclick = () => dyeEdit(null);
+  $$('[data-dye]', root).forEach(b => b.onclick = () => dyeEdit(S.items.find(i => i.id === b.dataset.dye)));
+  $$('[data-addc]', root).forEach(b => b.onclick = async () => {
+    const c = CARE_CATALOG.find(x => x.key === b.dataset.addc);
+    await addItem('care', { key: c.key, group: c.group, name: c.name, icon: c.icon, interval: c.interval, last: null, tip: c.tip || '' });
+    rerender();
+  });
+}
+function dyeEdit(it) {
+  const d = it?.data || { day: today(), type: 'Permanente', place: 'En casa', color: '#6B4A33' };
+  sheet(it ? 'Editar tinte' : 'Registrar tinte', `<div class="stack">
+    <div class="grid2"><label class="field"><span>Fecha</span><input type="date" name="day" value="${d.day}"></label>
+      <label class="field"><span>Color aproximado</span><input type="color" name="color" value="${esc(d.color || '#6B4A33')}" style="width:100%;border-radius:12px;height:46px"></label></div>
+    <label class="field"><span>Tono</span><input name="shade" value="${esc(d.shade || '')}" placeholder="6.0 rubio oscuro, castaño chocolate…"></label>
+    <label class="field"><span>Marca / producto</span><input name="brand" value="${esc(d.brand || '')}"></label>
+    <div class="field"><span>Tipo</span><div class="chips">${DYE_TYPES.map(t => `<label class="chip check"><input type="radio" name="type" value="${t}" ${d.type === t ? 'checked' : ''}>${t}</label>`).join('')}</div></div>
+    <div class="field"><span>Dónde</span><div class="chips">${DYE_PLACES.map(t => `<label class="chip check"><input type="radio" name="place" value="${t}" ${d.place === t ? 'checked' : ''}>${t}</label>`).join('')}</div></div>
+    <div class="grid2"><label class="field"><span>Coste €</span><input type="number" step="0.01" name="cost" value="${d.cost ?? ''}"></label>
+      <label class="field"><span>Tiempo de pose (min)</span><input type="number" name="pose" value="${d.pose ?? ''}"></label></div>
+    <label class="check-row"><input type="checkbox" name="patch" ${d.patch ? 'checked' : ''}><span>Hice la prueba de alergia 48 h antes</span></label>
+    <label class="field"><span>Notas (cómo quedó, qué cambiarías)</span><textarea class="input" name="notes" rows="3">${esc(d.notes || '')}</textarea></label>
+    <div class="row gap">${it ? `<button class="btn danger ghost" id="del" aria-label="Borrar">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="save">Guardar</button></div></div>`, body => {
+    $('#save', body).onclick = async () => {
+      const f = {};
+      $$('[name]', body).forEach(el => {
+        if (el.type === 'radio') { if (el.checked) f[el.name] = el.value; }
+        else if (el.type === 'checkbox') f[el.name] = el.checked;
+        else f[el.name] = el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value.trim();
+      });
+      if (!f.day) return toast('Pon la fecha');
+      if (!it && !f.patch) toast('Recuerda: prueba de alergia 48 h antes la próxima vez');
+      it ? await saveItem(it, f) : await addItem('dye', f);
+      const key = ROOT_TYPES.includes(f.type) ? 'dye_roots' : 'dye_gloss';
+      const cal = itemsOf('care').find(i => i.data.key === key);
+      if (cal && (!cal.data.last || cal.data.last < f.day)) await saveItem(cal, { last: f.day });
+      closeSheet(); rerender();
+    };
+    $('#del', body)?.addEventListener('click', async () => { if (await confirmBox('Se borrará este registro de tinte.')) { await deleteItem(it); rerender(); } });
+  });
 }

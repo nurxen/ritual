@@ -49,7 +49,29 @@ Cada persona entra una vez con el correo y la contraseña comunes, elige su perf
 
 ## 5. Actualizar la app
 
-Si cambias algún archivo, súbelo de nuevo a GitHub y en `sw.js` cambia `VERSION` (por ejemplo `ritual-v2`) para que los móviles carguen la versión nueva.
+Si cambias algún archivo, súbelo de nuevo a GitHub y en `sw.js` cambia `VERSION` (por ejemplo `ritual-v3`) para que los móviles carguen la versión nueva.
+
+### Pasar a la versión 2
+
+1. **Guarda tu `js/config.js`** actual (tiene tus claves). El del zip viene vacío.
+2. En GitHub, en tu repositorio: **Add file → Upload files** → arrastra todo el contenido nuevo (index.html, css, js, sw.js, supabase…) → **Commit changes**. Sustituye los archivos que ya existían.
+3. Vuelve a poner tus claves en `js/config.js` (edítalo en GitHub con el lápiz ✏️ y pega tus dos valores) → **Commit**.
+4. Borra `js/more.js` del repositorio si sigue ahí (ya no se usa).
+5. En el móvil: abre la app, ciérrala del todo y vuelve a abrirla. Si sigue la versión antigua, espera un par de minutos y repite.
+
+**No hay que tocar la base de datos.** Al entrar, cada perfil se adapta solo: "Algo artístico o estudiar" pasa a ser **Algo artístico** (con su historial) y se añade **Estudiar**; "Mi proyecto" se oculta si no tenía datos.
+
+### Google Calendar (opcional, una vez)
+
+Para la suscripción automática hay que instalar una pequeña función en Supabase:
+
+1. Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+2. Nombre: `calendar` (exactamente así).
+3. Borra el código de ejemplo, pega el contenido de `supabase/functions/calendar/index.ts` → **Deploy**.
+4. En la función, abre sus ajustes (**Details / Settings**) y **desactiva "Verify JWT"** (o "Enforce JWT verification"). Google no puede iniciar sesión, por eso el enlace lleva un código secreto propio de cada perfil.
+5. En la app: **⋯ → Conectar con Google Calendar → Añadir a Google Calendar**. Cada persona lo hace desde su perfil.
+
+Google actualiza los calendarios suscritos cada pocas horas, no al instante. Sin instalar la función también puedes usar el botón **G+** de cada evento o descargar el archivo .ics.
 
 ## Notas
 
@@ -66,13 +88,16 @@ Si cambias algún archivo, súbelo de nuevo a GitHub y en `sw.js` cambia `VERSIO
 index.html            entrada
 css/styles.css        estilos (claro / oscuro)
 js/config.js          ← tus claves de Supabase
-js/app.js             arranque, perfiles, Hoy, Calendario
-js/care.js            Cuidado: rutinas, IPL, calendarios, inventario, perfumes, looks, viaje, guía
-js/progress.js        Progreso: resumen semanal, rachas, mapa de calor, correlaciones, gasto
-js/more.js            Tareas, objetivos, inglés, categorías, ajustes
+js/app.js             arranque, perfiles, barra superior, Hoy
+js/agenda.js          Agenda: calendario, próximos eventos, tareas
+js/care.js            Cuidado: rutinas, IPL, tinte, calendarios, inventario, perfumes, looks, neceser, guía
+js/mente.js           Mente: foco con temporizador, inglés, objetivos
+js/progress.js        Progreso: semana, rachas, ejercicio, datos
+js/settings.js        Menú ⋯, mis hábitos, Google Calendar
 js/store.js           lógica y datos en memoria
 js/db.js              conexión Supabase / modo demo
 js/data.js            catálogo de categorías, plantillas, productos, reglas y guía
 supabase/schema.sql   base de datos
+supabase/functions/calendar/index.ts   calendario para Google / iPhone
 sw.js, manifest       instalación en el móvil
 ```

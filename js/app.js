@@ -1,4 +1,4 @@
-// Arranque, login, perfiles, plantillas, navegación, Hoy y Calendario
+// Arranque, login, perfiles, plantillas, navegación y pantalla HOY
 import * as db from './db.js';
 import {
   S, loadProfiles, loadProfileData, updateProfile, applyTemplate, TEMPLATES, activeCats, getVal, setVal, isDone,
@@ -6,13 +6,15 @@ import {
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
 } from './store.js';
 import {
-  esc, $, $$, icon, toast, sheet, closeSheet, today, addDays, diffDays, fmtLong, fmtShort, parseDay, dayStr,
-  MONTHS, avatarHtml, resizeImage, formData, relDay,
+  esc, $, $$, icon, toast, sheet, closeSheet, today, addDays, diffDays, fmtLong, parseDay,
+  avatarHtml, resizeImage, formData, relDay, eur, num,
 } from './ui.js';
-import { CATALOG, CARE_CATALOG, SECTIONS, QUOTES, CARE_GROUPS } from './data.js';
+import { CATALOG, CARE_CATALOG, SECTIONS, QUOTES, CARE_GROUPS, sectionColor, CARE_GROUP_COLORS } from './data.js';
 import { renderCare } from './care.js';
-import { renderProgress, weeklySummaryHtml } from './progress.js';
-import { renderMore } from './more.js';
+import { renderProgress } from './progress.js';
+import { renderAgenda } from './agenda.js';
+import { renderMente } from './mente.js';
+import { renderSettings, openMenu } from './settings.js';
 
 const app = document.getElementById('app');
 const LAST = 'ritual_last_profile';
@@ -23,43 +25,40 @@ export function applyTheme() {
   if (t === 'auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', t);
   const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#1C1916' : '#F6F1EA');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#121110' : '#F5F3EF');
 }
 
 // ---------------- Arranque ----------------
 async function boot() {
   applyTheme();
-  try { await db.init(); } catch (e) {
-    app.innerHTML = `<div class="center-screen"><p>No se pudo conectar. Revisa tu conexión.</p></div>`; return;
+  try { await db.init(); } catch {
+    app.innerHTML = '<div class="center-screen"><p>No hay conexión. Comprueba internet y vuelve a abrir la app.</p></div>'; return;
   }
   const session = await db.getSession().catch(() => null);
   if (!session) return renderLogin();
   await enter();
 }
-
 async function enter() {
   await loadProfiles();
-  const last = localStorage.getItem(LAST);
-  const p = S.profiles.find(x => x.id === last);
+  const p = S.profiles.find(x => x.id === localStorage.getItem(LAST));
   if (p) await openProfile(p); else renderPicker();
 }
-
 export async function openProfile(p) {
-  app.innerHTML = `<div class="center-screen"><div class="loader"></div></div>`;
+  app.innerHTML = '<div class="center-screen"><div class="loader"></div></div>';
   await loadProfileData(p);
   localStorage.setItem(LAST, p.id);
   document.documentElement.style.setProperty('--pc', p.color);
   S.date = today();
   if (!p.onboarded) return renderOnboarding();
   renderShell();
-  loadWeather().then(() => { if (location.hash.startsWith('#/hoy') || !location.hash) rerender(); });
+  loadWeather().then(() => { if (!location.hash || location.hash.startsWith('#/hoy')) rerender(); });
 }
 
 // ---------------- Login ----------------
 function renderLogin(err = '') {
   app.innerHTML = `
   <div class="center-screen login">
-    <div class="brand"><span class="brand-mark">R</span><h1>Ritual</h1><p class="muted">daily tracker</p></div>
+    <div class="center"><div class="wordmark">Ritual</div><p class="tagline">tu día, en orden</p></div>
     <form class="card stack" id="loginForm">
       <label class="field"><span>Correo</span><input type="email" name="email" autocomplete="username" required></label>
       <label class="field"><span>Contraseña</span><input type="password" name="password" autocomplete="current-password" required></label>
@@ -70,9 +69,8 @@ function renderLogin(err = '') {
   $('#loginForm').onsubmit = async e => {
     e.preventDefault();
     const f = formData(e.target);
-    const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'Entrando…';
-    try { await db.signIn(f.email, f.password); await enter(); }
-    catch { renderLogin('Correo o contraseña incorrectos.'); }
+    const b = e.target.querySelector('button'); b.disabled = true; b.textContent = 'Entrando…';
+    try { await db.signIn(f.email, f.password); await enter(); } catch { renderLogin('El correo o la contraseña no coinciden.'); }
   };
 }
 
@@ -80,50 +78,48 @@ function renderLogin(err = '') {
 export function renderPicker() {
   localStorage.removeItem(LAST);
   app.innerHTML = `
-  <div class="center-screen picker">
-    <div class="brand small"><span class="brand-mark">R</span><h1>¿Quién eres?</h1></div>
-    <div class="profile-grid">
-      ${S.profiles.map(p => `
-        <button class="profile-tile" data-id="${p.id}">
-          ${avatarHtml(p, 'xl')}<span class="pname">${esc(p.name)}</span>
-        </button>`).join('')}
+  <div class="center-screen">
+    <div class="center"><div class="wordmark" style="font-size:48px">Ritual</div><p class="tagline">¿Quién eres?</p></div>
+    <div class="profile-grid">${S.profiles.map(p => `
+      <button class="profile-tile" data-id="${p.id}" style="--pc:${esc(p.color)}">${avatarHtml(p, 'lg')}<span class="pname">${esc(p.name)}</span></button>`).join('')}
     </div>
-    ${db.DEMO ? '<p class="demo-note">Modo demo · los datos se guardan solo en este navegador</p>' : ''}
+    ${db.DEMO ? '<p class="demo-note">Modo demo: los datos se guardan solo en este navegador</p>' : ''}
   </div>`;
   $$('.profile-tile').forEach(b => b.onclick = () => openProfile(S.profiles.find(p => p.id === b.dataset.id)));
 }
 
 // ---------------- Editor de perfil ----------------
-const SWATCHES = ['#C9A99A', '#B8A08A', '#A9B39B', '#9AA7B3', '#C4B5A0', '#D4B8B0', '#8F9A86', '#B39A9A', '#A69CB8', '#C2A878'];
+const SWATCHES = ['#D4627F', '#E4572E', '#D49A1C', '#5E8C4A', '#2E8C8C', '#3D5BC9', '#7C6AD6', '#9B5BBF', '#B8673A', '#1B1A17'];
 export function profileEditor() {
-  const p = S.profile;
-  const s = settings();
+  const p = S.profile; const s = settings();
+  const focusOpts = activeCats().filter(c => ['minutes', 'bool_minutes'].includes(c.type));
   sheet('Mi perfil', `
     <div class="stack">
-      <div class="row gap center"><div id="avPrev">${avatarHtml(p, 'xl')}</div>
+      <div class="row gap"><div id="avPrev">${avatarHtml(p, 'xl')}</div>
         <div class="stack grow">
           <label class="btn ghost small">Subir imagen<input type="file" accept="image/*" id="avFile" hidden></label>
-          <input class="input" id="avEmoji" maxlength="4" placeholder="o un emoji 🤍" value="${p.avatar && !p.avatar.startsWith('data:') ? esc(p.avatar) : ''}">
+          <input class="input" id="avEmoji" maxlength="4" placeholder="o un emoji" value="${p.avatar && !p.avatar.startsWith('data:') ? esc(p.avatar) : ''}">
         </div></div>
       <label class="field"><span>Nombre</span><input name="name" value="${esc(p.name)}"></label>
       <div class="field"><span>Color</span><div class="swatches">
-        ${SWATCHES.map(c => `<button class="swatch ${c === p.color ? 'on' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}
-        <input type="color" id="colorPick" value="${esc(p.color)}" aria-label="Color personalizado">
-      </div></div>
-      <h4 class="mt">Mis objetivos diarios</h4>
+        ${SWATCHES.map(c => `<button class="swatch ${c === p.color ? 'on' : ''}" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}
+        <input type="color" id="colorPick" value="${esc(p.color)}" aria-label="Color personalizado"></div></div>
+      <h3 class="mt">Plan de Hoy</h3>
       <div class="grid2">
         <label class="field"><span>Ejercicio (min)</span><input type="number" name="exerciseGoal" value="${s.exerciseGoal}"></label>
         <label class="field"><span>Tiempo libre habitual (min)</span><input type="number" name="freeTime" value="${s.freeTime}"></label>
-        <label class="field"><span>Nombre del proyecto</span><input name="projectName" value="${esc(s.projectName)}"></label>
-        <label class="field"><span>Proyecto (min)</span><input type="number" name="projectGoal" value="${s.projectGoal}"></label>
       </div>
-      <h4 class="mt">Ciudad para UV y humedad</h4>
+      <label class="field"><span>Línea 📚 del plan: ¿a qué dedicas tu rato de foco?</span>
+        <select name="focusKey">${focusOpts.map(c => `<option value="${c.key || c.id}" ${(s.focusKey === (c.key || c.id)) ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}
+        <option value="none" ${s.focusKey === 'none' ? 'selected' : ''}>No mostrar</option></select></label>
+      <label class="field"><span>Minutos de foco al día</span><input type="number" name="focusGoal" value="${s.focusGoal ?? 30}"></label>
+      <h3 class="mt">Ciudad (UV y humedad)</h3>
       <div class="grid3">
         <label class="field"><span>Ciudad</span><input name="city" value="${esc(s.city)}"></label>
         <label class="field"><span>Latitud</span><input type="number" step="0.0001" name="lat" value="${s.lat}"></label>
         <label class="field"><span>Longitud</span><input type="number" step="0.0001" name="lon" value="${s.lon}"></label>
       </div>
-      <button class="btn primary" id="saveP">Guardar</button>
+      <button class="btn primary" id="saveP">Guardar perfil</button>
     </div>`, body => {
     let avatar = p.avatar; let color = p.color;
     const prev = () => { $('#avPrev', body).innerHTML = avatarHtml({ ...p, avatar, color }, 'xl'); };
@@ -135,8 +131,8 @@ export function profileEditor() {
       const f = formData(body);
       await updateProfile({ name: f.name || p.name, avatar, color });
       await saveSettings({
-        exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, projectName: f.projectName || 'tu proyecto',
-        projectGoal: f.projectGoal ?? 30, city: f.city, lat: f.lat ?? 40.4168, lon: f.lon ?? -3.7038,
+        exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, focusKey: f.focusKey, focusGoal: f.focusGoal ?? 30,
+        city: f.city, lat: f.lat ?? 40.4168, lon: f.lon ?? -3.7038,
       });
       sessionStorage.clear();
       document.documentElement.style.setProperty('--pc', color);
@@ -151,21 +147,21 @@ function renderOnboarding() {
   const draw = () => {
     const t = TEMPLATES[sel];
     app.innerHTML = `
-    <div class="page onboarding">
-      <header class="ob-head">${avatarHtml(S.profile, 'lg')}<div><h1>Hola, ${esc(S.profile.name)}</h1>
-        <p class="muted">Elige con qué empezar. Luego puedes añadir, quitar o editar todo.</p></div></header>
-      <div class="chips wrap">${Object.entries(TEMPLATES).map(([k, v]) => `<button class="chip ${k === sel ? 'on' : ''}" data-t="${k}">${v.label}</button>`).join('')}</div>
+    <div class="page">
+      <div class="ob-head">${avatarHtml(S.profile, 'lg')}<div><h1>Hola, ${esc(S.profile.name)}</h1>
+        <p class="muted">Elige con qué empezar. Todo se puede cambiar después.</p></div></div>
+      <div class="chips rail">${Object.entries(TEMPLATES).map(([k, v]) => `<button class="chip ${k === sel ? 'on' : ''}" data-t="${k}">${v.label}</button>`).join('')}</div>
       <form id="obForm">
         ${SECTIONS.map(sec => {
           const items = CATALOG.filter(c => c.section === sec);
-          return `<h4 class="sec-title">${sec}</h4><div class="card list">${items.map(c => `
+          return `<div class="section-head" style="--c:${sectionColor(sec)}"><h2 style="color:var(--c)">${sec}</h2></div><div class="card list">${items.map(c => `
             <label class="check-row"><input type="checkbox" name="cats" data-multi="1" value="${c.key}" ${t.cats.includes(c.key) ? 'checked' : ''}>
             <span class="ci">${c.icon}</span><span class="grow">${esc(c.name)}</span></label>`).join('')}</div>`;
         }).join('')}
-        <h4 class="sec-title">Calendarios de cuidado</h4>
+        <div class="section-head"><h2>Calendarios de cuidado</h2></div>
         <div class="card list">${CARE_CATALOG.map(c => `
           <label class="check-row"><input type="checkbox" name="care" data-multi="1" value="${c.key}" ${t.care.includes(c.key) ? 'checked' : ''}>
-          <span class="ci">${c.icon}</span><span class="grow">${c.group === 'ipl' ? 'IPL · ' : ''}${esc(c.name)}</span>
+          <span class="ci">${c.icon}</span><span class="grow">${c.group === 'ipl' ? 'IPL: ' : ''}${esc(c.name)}</span>
           <span class="muted small">${c.group === 'ipl' ? '' : CARE_GROUPS[c.group]}</span></label>`).join('')}</div>
         <div class="sticky-cta"><button class="btn primary block" type="submit">Empezar</button></div>
       </form>
@@ -184,352 +180,285 @@ function renderOnboarding() {
 
 // ---------------- Shell y navegación ----------------
 const TABS = [
-  ['hoy', 'Hoy', 'hoy'], ['calendario', 'Calendario', 'cal'], ['cuidado', 'Cuidado', 'care'],
-  ['progreso', 'Progreso', 'stats'], ['mas', 'Más', 'more'],
+  ['hoy', 'Hoy', 'hoy'], ['agenda', 'Agenda', 'cal'], ['cuidado', 'Cuidado', 'care'],
+  ['mente', 'Mente', 'mind'], ['progreso', 'Progreso', 'stats'],
 ];
 function renderShell() {
-  app.innerHTML = `
-    <main id="view" class="page"></main>
-    <nav class="tabbar">${TABS.map(([k, l, i]) => `<a href="#/${k}" data-tab="${k}">${icon(i)}<span>${l}</span></a>`).join('')}</nav>
-    ${db.DEMO ? '<div class="demo-pill">demo</div>' : ''}`;
-  if (!location.hash || location.hash === '#/') location.hash = '#/hoy';
-  else rerender();
+  app.innerHTML = `<main id="view" class="page"></main>
+    <nav class="tabbar">${TABS.map(([k, l, i]) => `<a href="#/${k}" data-tab="${k}">${icon(i)}<span>${l}</span></a>`).join('')}</nav>`;
+  if (!location.hash || location.hash === '#/') location.hash = '#/hoy'; else rerender();
 }
 window.addEventListener('hashchange', () => { if (S.profile && $('#view')) { rerender(); window.scrollTo(0, 0); } });
 
 export function rerender() {
   const view = $('#view'); if (!view) return;
-  const [, tab = 'hoy', sub] = location.hash.split('/');
+  const [, tab = 'hoy', sub, sub2] = location.hash.split('/');
   $$('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
-  const y = window.scrollY;
-  if (tab === 'hoy') renderHoy(view);
-  else if (tab === 'calendario') renderCalendar(view);
-  else if (tab === 'cuidado') renderCare(view, sub);
-  else if (tab === 'progreso') renderProgress(view);
-  else if (tab === 'mas') renderMore(view, sub);
-  return y;
+  const pages = {
+    hoy: () => renderHoy(view), agenda: () => renderAgenda(view, sub), cuidado: () => renderCare(view, sub, sub2),
+    mente: () => renderMente(view, sub), progreso: () => renderProgress(view, sub), ajustes: () => renderSettings(view, sub),
+  };
+  (pages[tab] || pages.hoy)();
+  bindTopbar(view);
 }
 export const go = h => { if (location.hash === h) rerender(); else location.hash = h; };
 
-export function header(title, sub = '') {
-  return `<header class="top">
-    <div><p class="eyebrow">${esc(sub)}</p><h1>${title}</h1></div>
-    <button class="avatar-btn" id="meBtn" aria-label="Perfil">${avatarHtml(S.profile)}</button>
-  </header>`;
+// Barra superior: nombre a la izquierda, perfil y más opciones a la derecha
+export function topbar() {
+  return `<div class="appbar">
+    <div><div class="wordmark">Ritual</div></div>
+    ${db.DEMO ? '<span class="demo-pill">DEMO</span>' : ''}
+    <span class="spacer"></span>
+    <button class="bar-btn" id="meBtn" aria-label="Perfil">${avatarHtml(S.profile, 'sm')}</button>
+    <button class="bar-btn" id="moreBtn" aria-label="Más opciones">${icon('dots')}</button>
+  </div>`;
 }
-export function bindHeader(root) {
-  const b = $('#meBtn', root);
-  if (b) b.onclick = () => sheet(S.profile.name, `
-    <div class="stack">
+function bindTopbar(root) {
+  const me = $('#meBtn', root); const more = $('#moreBtn', root);
+  if (me) me.onclick = () => sheet(S.profile.name, `<div class="stack">
       <button class="btn ghost" id="mEdit">Editar perfil, color e imagen</button>
-      <button class="btn ghost" id="mSwitch">Cambiar de perfil</button>
-    </div>`, body => {
-    $('#mEdit', body).onclick = () => profileEditor();
+      <button class="btn ghost" id="mSwitch">Cambiar de perfil</button></div>`, body => {
+    $('#mEdit', body).onclick = profileEditor;
     $('#mSwitch', body).onclick = () => { closeSheet(); location.hash = ''; renderPicker(); };
   });
+  if (more) more.onclick = openMenu;
 }
 
-// ---------------- Controles de cada categoría ----------------
+// ---------------- Mosaico de hábitos ----------------
 const EX_TYPES = [['crossfit', 'CrossFit'], ['correr', 'Correr'], ['casa', 'En casa'], ['descanso', 'Descanso']];
+const EX_LABEL = Object.fromEntries(EX_TYPES);
 const INT = [['suave', 'Suave'], ['media', 'Media'], ['alta', 'Alta']];
 
-function catRow(c, day) {
-  const v = getVal(c.id, day);
-  const done = isDone(c, v);
-  const head = `<span class="hhead"><span class="ci">${esc(c.icon || '•')}</span><span class="cname">${esc(c.name)}</span></span>`;
+function tileValue(c, v) {
+  const bar = (n, t) => t ? `<div class="bar"><i style="width:${Math.min(100, (Number(n) || 0) / t * 100)}%"></i></div>` : '';
   switch (c.type) {
-    case 'bool':
-      return `<button class="habit ${done ? 'done' : ''}" data-cid="${c.id}" data-act="toggle">${head}<span class="tick">${icon('check')}</span></button>`;
-    case 'number':
-      return `<div class="habit col ${done ? 'done' : ''}">${head}
-        <div class="row gap"><input class="input num" type="number" inputmode="numeric" data-cid="${c.id}" data-act="num" value="${v ?? ''}" placeholder="0">
-        <span class="muted small">${esc(c.unit || '')}${c.target ? ` · meta ${Number(c.target).toLocaleString('es-ES')}` : ''}</span></div>
-        ${c.target ? `<div class="bar"><i style="width:${Math.min(100, (Number(v) || 0) / c.target * 100)}%"></i></div>` : ''}</div>`;
-    case 'scale':
-      return `<div class="habit col">${head}<div class="scale">${[1, 2, 3, 4, 5].map(n => `<button class="dot ${Number(v) >= n ? 'on' : ''}" data-cid="${c.id}" data-act="scale" data-n="${n}" aria-label="${n}">${n}</button>`).join('')}</div></div>`;
-    case 'minutes':
-      return `<div class="habit col ${done ? 'done' : ''}">${head}
-        <div class="row gap"><button class="btn tiny ghost" data-cid="${c.id}" data-act="addmin" data-n="10">+10</button>
-        <button class="btn tiny ghost" data-cid="${c.id}" data-act="addmin" data-n="30">+30</button>
-        <input class="input num" type="number" inputmode="numeric" data-cid="${c.id}" data-act="num" value="${v ?? ''}" placeholder="0"><span class="muted small">min${c.target ? ` / ${c.target}` : ''}</span></div>
-        ${c.target ? `<div class="bar"><i style="width:${Math.min(100, (Number(v) || 0) / c.target * 100)}%"></i></div>` : ''}</div>`;
-    case 'bool_minutes':
-      return `<div class="habit col ${done ? 'done' : ''}"><button class="row-btn" data-cid="${c.id}" data-act="bm-toggle">${head}<span class="tick">${icon('check')}</span></button>
-        <div class="row gap"><input class="input num" type="number" inputmode="numeric" data-cid="${c.id}" data-act="bm-min" value="${v?.min ?? ''}" placeholder="0"><span class="muted small">minutos</span></div></div>`;
-    case 'money':
-      return `<div class="habit col ${done ? 'done' : ''}">${head}
-        <div class="row gap"><input class="input num" type="number" inputmode="decimal" step="0.01" data-cid="${c.id}" data-act="money" value="${v?.amount ?? ''}" placeholder="0 €">
-        <input class="input grow" data-cid="${c.id}" data-act="money-note" value="${esc(v?.note || '')}" placeholder="¿en qué?"></div>
-        <button class="btn tiny ghost" data-cid="${c.id}" data-act="money-zero">No he gastado nada</button></div>`;
-    case 'text':
-      return `<div class="habit col">${head}<textarea class="input" rows="3" data-cid="${c.id}" data-act="text" placeholder="Cómo ha ido el día…">${esc(v || '')}</textarea></div>`;
-    case 'exercise': {
-      const x = v || {};
-      return `<div class="habit col ex ${done ? 'done' : ''}">${head}
-        <div class="chips">${EX_TYPES.map(([k, l]) => `<button class="chip ${x.type === k ? 'on' : ''}" data-cid="${c.id}" data-act="ex" data-f="type" data-v="${k}">${l}</button>`).join('')}</div>
-        ${x.type && x.type !== 'descanso' ? `
-        <div class="grid3">
-          <label class="field"><span>Minutos</span><input class="input" type="number" inputmode="numeric" data-cid="${c.id}" data-act="exin" data-f="min" value="${x.min ?? ''}"></label>
-          ${x.type === 'correr' ? `<label class="field"><span>Km</span><input class="input" type="number" inputmode="decimal" step="0.1" data-cid="${c.id}" data-act="exin" data-f="km" value="${x.km ?? ''}"></label>` : ''}
-          <label class="field"><span>Hora</span><input class="input" type="time" data-cid="${c.id}" data-act="exin" data-f="time" value="${x.time ?? ''}"></label>
-        </div>
-        <div class="row gap wrap">
-          <div class="chips">${INT.map(([k, l]) => `<button class="chip small ${x.int === k ? 'on' : ''}" data-cid="${c.id}" data-act="ex" data-f="int" data-v="${k}">${l}</button>`).join('')}</div>
-          <button class="chip small ${x.sweat ? 'on' : ''}" data-cid="${c.id}" data-act="ex" data-f="sweat" data-v="1">💦 Muy sudoroso</button>
-        </div>` : ''}
-      </div>`;
-    }
+    case 'number': return `<span class="t-val">${v ? num(v) : '0'}</span><span class="t-sub">${esc(c.unit || '')}${c.target ? ` de ${num(c.target)}` : ''}</span>${bar(v, c.target)}`;
+    case 'minutes': return `<span class="t-val">${Number(v) || 0}′</span>${c.target ? `<span class="t-sub">meta ${c.target}′</span>` : ''}${bar(v, c.target)}`;
+    case 'bool_minutes': return v?.min ? `<span class="t-val">${v.min}′</span>` : '';
+    case 'scale': return `<div class="scale-mini">${[1, 2, 3, 4, 5].map(n => `<i class="${Number(v) >= n ? 'on' : ''}"></i>`).join('')}</div>`;
+    case 'money': return v ? `<span class="t-val">${eur(v.amount)}</span>${v.note ? `<span class="t-sub">${esc(v.note)}</span>` : ''}` : '<span class="t-sub">Toca para apuntar</span>';
+    case 'text': return `<span class="t-sub">${v ? esc(String(v).slice(0, 80)) + (String(v).length > 80 ? '…' : '') : 'Toca para escribir'}</span>`;
+    case 'exercise': return v?.type ? `<span class="t-val">${EX_LABEL[v.type]}${v.min ? ` ${v.min}′` : ''}</span><span class="t-sub">${[v.km ? `${v.km} km` : '', v.int || '', v.sweat ? 'muy sudoroso' : ''].filter(Boolean).join(', ')}</span>` : '<span class="t-sub">Toca para apuntar</span>';
     default: return '';
   }
 }
+function tile(c, day) {
+  const v = getVal(c.id, day); const done = isDone(c, v);
+  const st = c.type === 'bool' && day === today() ? streak(c) : 0;
+  const wide = c.type === 'text' || c.type === 'exercise';
+  return `<button class="tile ${done ? 'done' : ''} ${wide ? 'wide' : ''}" data-tile="${c.id}" style="--c:${sectionColor(c.section)}">
+    <div class="t-top"><span class="t-emoji">${esc(c.icon || '•')}</span>${['bool', 'bool_minutes'].includes(c.type) || (done && c.type !== 'text') ? `<span class="t-check">${icon('check')}</span>` : ''}</div>
+    <span class="t-name">${esc(c.name)}</span>${tileValue(c, v)}
+    ${st >= 3 ? `<span class="t-streak">🔥${st}</span>` : ''}
+  </button>`;
+}
 
-function bindCatControls(root, day, refresh) {
-  const cat = id => S.cats.find(c => c.id === id);
-  root.addEventListener('click', async e => {
-    const el = e.target.closest('[data-act]'); if (!el || !el.dataset.cid) return;
-    const c = cat(el.dataset.cid); const v = getVal(c.id, day); const a = el.dataset.act;
-    if (a === 'toggle') await setVal(c.id, !v, day);
-    else if (a === 'scale') await setVal(c.id, Number(v) === Number(el.dataset.n) ? null : Number(el.dataset.n), day);
-    else if (a === 'addmin') await setVal(c.id, (Number(v) || 0) + Number(el.dataset.n), day);
-    else if (a === 'bm-toggle') await setVal(c.id, { done: !(v?.done), min: v?.min ?? null }, day);
-    else if (a === 'money-zero') await setVal(c.id, { amount: 0, note: 'Nada' }, day);
-    else if (a === 'ex') {
-      const x = { ...(v || {}) }; const f = el.dataset.f;
-      if (f === 'sweat') x.sweat = !x.sweat;
-      else x[f] = x[f] === el.dataset.v ? null : el.dataset.v;
-      if (f === 'type' && x.type === 'descanso') { x.min = null; x.km = null; x.int = null; x.sweat = false; }
-      await setVal(c.id, x.type ? x : null, day);
-    } else return;
-    refresh();
-  });
-  root.addEventListener('change', async e => {
-    const el = e.target.closest('[data-act]'); if (!el || !el.dataset.cid) return;
-    const c = cat(el.dataset.cid); const v = getVal(c.id, day); const a = el.dataset.act; const val = el.value;
-    if (a === 'num') await setVal(c.id, val === '' ? null : Number(val), day);
-    else if (a === 'bm-min') await setVal(c.id, { done: val !== '' && Number(val) > 0 ? true : !!v?.done, min: val === '' ? null : Number(val) }, day);
-    else if (a === 'money') await setVal(c.id, { amount: val === '' ? null : Number(val), note: v?.note || '' }, day);
-    else if (a === 'money-note') await setVal(c.id, { amount: v?.amount ?? null, note: val }, day);
-    else if (a === 'text') { await setVal(c.id, val, day); toast('Nota guardada'); return; }
-    else if (a === 'exin') {
-      const x = { ...(v || {}) }; const f = el.dataset.f;
-      x[f] = f === 'time' ? val : (val === '' ? null : Number(val));
-      await setVal(c.id, x, day);
-    } else return;
-    refresh();
+// Hoja para apuntar un hábito que no es sí/no
+export function habitSheet(c, day, after) {
+  const v = getVal(c.id, day);
+  const col = sectionColor(c.section);
+  const done = async val => { await setVal(c.id, val, day); closeSheet(); after(); };
+  let html = '';
+  if (c.type === 'scale') html = `<div class="scale" style="--c:${col}">${[1, 2, 3, 4, 5].map(n => `<button class="dot ${Number(v) === n ? 'on' : ''}" data-n="${n}">${n}</button>`).join('')}</div>
+      <p class="small muted center mt-s">1 = muy mal · 5 = genial</p>${v ? '<button class="btn ghost block mt" id="clr">Borrar</button>' : ''}`;
+  else if (c.type === 'number') html = `<input class="input big" type="number" inputmode="numeric" id="val" value="${v ?? ''}" placeholder="0">
+      <p class="center muted small">${esc(c.unit || '')}${c.target ? ` · meta ${num(c.target)}` : ''}</p>
+      <button class="btn primary block mt" id="ok">Guardar</button>`;
+  else if (c.type === 'minutes' || c.type === 'bool_minutes') {
+    const m = c.type === 'minutes' ? Number(v) || 0 : Number(v?.min) || 0;
+    html = `${c.type === 'bool_minutes' ? `<button class="btn ${v?.done ? 'color' : 'ghost'} block" id="tg" style="--c:${col}">${v?.done ? '✓ Hecho' : 'Marcar como hecho'}</button>` : ''}
+      <div class="stepper mt"><button class="icon-btn" data-d="-5">−</button><input class="input big" style="width:130px" type="number" inputmode="numeric" id="val" value="${m}"><button class="icon-btn" data-d="5">+</button></div>
+      <p class="center muted small">minutos${c.target ? ` · meta ${c.target}` : ''}</p>
+      <div class="quick">${[10, 15, 30, 45, 60].map(n => `<button class="chip" data-add="${n}">+${n}</button>`).join('')}</div>
+      <button class="btn primary block mt" id="ok">Guardar</button>`;
+  } else if (c.type === 'money') html = `<input class="input big" type="number" inputmode="decimal" step="0.01" id="val" value="${v?.amount ?? ''}" placeholder="0 €">
+      <label class="field mt"><span>¿En qué?</span><input id="note" value="${esc(v?.note || '')}"></label>
+      <div class="row gap mt"><button class="btn ghost grow" id="zero">No he gastado nada</button><button class="btn primary grow" id="ok">Guardar</button></div>`;
+  else if (c.type === 'text') html = `<textarea class="input" rows="7" id="val" placeholder="Cómo ha ido el día…">${esc(v || '')}</textarea><button class="btn primary block mt" id="ok">Guardar nota</button>`;
+  else if (c.type === 'exercise') {
+    const x = { ...(v || {}) };
+    html = `<div class="stack" id="ex">
+      <div class="chips">${EX_TYPES.map(([k, l]) => `<button class="chip ${x.type === k ? 'on' : ''}" data-f="type" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="grid3"><label class="field"><span>Minutos</span><input type="number" inputmode="numeric" id="min" value="${x.min ?? ''}"></label>
+        <label class="field" id="kmF" ${x.type === 'correr' ? '' : 'hidden'}><span>Km</span><input type="number" inputmode="decimal" step="0.1" id="km" value="${x.km ?? ''}"></label>
+        <label class="field"><span>Hora</span><input type="time" id="time" value="${x.time ?? ''}"></label></div>
+      <div class="field"><span>Intensidad</span><div class="chips">${INT.map(([k, l]) => `<button class="chip ${x.int === k ? 'on' : ''}" data-f="int" data-v="${k}">${l}</button>`).join('')}
+        <button class="chip ${x.sweat ? 'on' : ''}" data-f="sweat" data-v="1">💦 Muy sudoroso</button></div></div>
+      <p class="small muted">La hora sirve para el aviso de IPL (12 h después del entreno).</p>
+      <div class="row gap">${v ? '<button class="btn ghost" id="clr">Borrar</button>' : ''}<button class="btn primary grow" id="ok">Guardar</button></div></div>`;
+    sheet(c.name, html, body => {
+      $$('[data-f]', body).forEach(b => b.onclick = () => {
+        const f = b.dataset.f;
+        if (f === 'sweat') x.sweat = !x.sweat; else x[f] = x[f] === b.dataset.v ? null : b.dataset.v;
+        $$(`[data-f="${f}"]`, body).forEach(o => o.classList.toggle('on', f === 'sweat' ? x.sweat : x[f] === o.dataset.v));
+        $('#kmF', body).hidden = x.type !== 'correr';
+      });
+      $('#ok', body).onclick = () => {
+        const n = id => { const e = $(id, body).value; return e === '' ? null : Number(e); };
+        x.min = n('#min'); x.km = x.type === 'correr' ? n('#km') : null; x.time = $('#time', body).value || null;
+        if (x.type === 'descanso') Object.assign(x, { min: null, km: null, int: null, sweat: false });
+        done(x.type ? x : null);
+      };
+      $('#clr', body)?.addEventListener('click', () => done(null));
+    });
+    return;
+  }
+  sheet(`${c.icon || ''} ${c.name}`, html, body => {
+    $$('.dot', body).forEach(b => b.onclick = () => done(Number(b.dataset.n)));
+    $('#clr', body)?.addEventListener('click', () => done(null));
+    const inp = $('#val', body);
+    $$('[data-d]', body).forEach(b => b.onclick = () => { inp.value = Math.max(0, (Number(inp.value) || 0) + Number(b.dataset.d)); });
+    $$('[data-add]', body).forEach(b => b.onclick = () => { inp.value = (Number(inp.value) || 0) + Number(b.dataset.add); });
+    let tg = !!v?.done;
+    $('#tg', body)?.addEventListener('click', e => { tg = !tg; e.target.className = `btn ${tg ? 'color' : 'ghost'} block`; e.target.textContent = tg ? '✓ Hecho' : 'Marcar como hecho'; });
+    $('#zero', body)?.addEventListener('click', () => done({ amount: 0, note: 'Nada' }));
+    $('#ok', body)?.addEventListener('click', () => {
+      const raw = inp.value;
+      if (c.type === 'number' || c.type === 'minutes') done(raw === '' || Number(raw) === 0 ? null : Number(raw));
+      else if (c.type === 'bool_minutes') done({ done: tg || Number(raw) > 0, min: Number(raw) || null });
+      else if (c.type === 'money') done(raw === '' ? null : { amount: Number(raw), note: $('#note', body).value.trim() });
+      else if (c.type === 'text') done(raw.trim() || null);
+    });
+    if (inp && c.type !== 'text') setTimeout(() => inp.select?.(), 300);
   });
 }
 
 // ---------------- HOY ----------------
 function ring(p) {
-  const r = 26, c = 2 * Math.PI * r;
-  return `<svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${r}" class="ring-bg"/>
-    <circle cx="32" cy="32" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/>
-    <text x="32" y="37" text-anchor="middle">${Math.round(p * 100)}%</text></svg>`;
+  const r = 38, c = 2 * Math.PI * r;
+  return `<svg class="ring" viewBox="0 0 92 92"><circle cx="46" cy="46" r="${r}" class="ring-bg"/>
+    <circle cx="46" cy="46" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/>
+    <text x="46" y="53" text-anchor="middle">${Math.round(p * 100)}%</text></svg>`;
 }
-
 function taskLine(t, dot) {
-  return `<button class="plan-task" data-task="${t.id}"><span class="pdot ${dot}"></span><span class="grow">${esc(t.data.title)}</span>${t.data.est ? `<span class="muted small">${t.data.est}′</span>` : ''}<span class="tick">${icon('check')}</span></button>`;
+  return `<button class="plan-task" data-task="${t.id}"><span class="pdot ${dot}"></span><span class="grow">${esc(t.data.title)}</span>${t.data.est ? `<span class="est">${t.data.est}′</span>` : ''}<span class="tick">${icon('check')}</span></button>`;
 }
-
 function planCard() {
   const s = settings();
   const { red, orange, green } = dayPlan();
   const exCat = S.cats.find(c => c.type === 'exercise' && c.active);
   const exMin = exCat ? Number(getVal(exCat.id, today())?.min) || 0 : 0;
-  const prCat = catByKey('project');
-  const prMin = prCat ? Number(getVal(prCat.id, today())) || 0 : 0;
+  const fCat = s.focusKey === 'none' ? null : S.cats.find(c => (c.key || c.id) === s.focusKey && c.active);
+  const fv = fCat ? getVal(fCat.id, today()) : 0;
+  const fMin = fCat ? (fCat.type === 'bool_minutes' ? Number(fv?.min) || 0 : Number(fv) || 0) : 0;
+  const fGoal = Number(s.focusGoal) || 30;
   const free = Number(s.todayFree?.day === today() ? s.todayFree.min : s.freeTime) || 0;
   const all = [...red, ...orange, ...green];
-  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + Math.max(0, s.exerciseGoal - exMin) + Math.max(0, s.projectGoal - prMin);
+  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + Math.max(0, s.exerciseGoal - exMin) + (fCat ? Math.max(0, fGoal - fMin) : 0);
   const q = QUOTES[parseDay(today()).getDate() % QUOTES.length];
-  const top3 = [...red, ...orange].slice(0, 3);
-  const empty = all.length === 0;
+  const group = (label, list, dot) => `<div class="plan-group"><p class="plan-label">${label}</p>${list.map(t => taskLine(t, dot)).join('') || '<p class="small" style="color:#A8A29A">Nada aquí</p>'}</div>`;
   return `<section class="card plan">
-    <div class="row between"><h2>Hoy</h2><button class="btn tiny ghost" id="freeBtn">⏳ ${free} min libres</button></div>
-    ${empty ? `<p class="muted">No tienes tareas pendientes. <a href="#/mas/tareas">Añade alguna</a> y aquí aparecerá tu plan del día.</p>` : `
-    <div class="plan-group"><p class="plan-label">🔴 No lo pospongas</p>${red.map(t => taskLine(t, 'r')).join('') || '<p class="muted small">—</p>'}</div>
-    <div class="plan-group"><p class="plan-label">🟠 Importantes</p>${orange.map(t => taskLine(t, 'o')).join('') || '<p class="muted small">—</p>'}</div>
-    <div class="plan-group"><p class="plan-label">🟢 Pequeñas</p>${green.map(t => taskLine(t, 'g')).join('') || '<p class="muted small">—</p>'}</div>`}
+    <div class="row between"><h2>Plan de hoy</h2><button class="btn tiny free" id="freeBtn">⏳ ${free} min libres</button></div>
+    ${all.length ? `${group('🔴 No lo pospongas', red, 'r')}${group('🟠 Importantes', orange, 'o')}${group('🟢 Pequeñas', green, 'g')}`
+      : '<p class="note-line">No tienes tareas pendientes. <a href="#/agenda/tareas">Añade alguna</a> y aquí verás tu plan.</p>'}
     <div class="plan-goals">
-      <div><span>🏋️ ${s.exerciseGoal} min de ejercicio</span><div class="bar"><i style="width:${Math.min(100, exMin / s.exerciseGoal * 100)}%"></i></div></div>
-      <div><span>📚 ${s.projectGoal} min para ${esc(s.projectName)}</span><div class="bar"><i style="width:${Math.min(100, prMin / s.projectGoal * 100)}%"></i></div></div>
+      <button class="goal-chip" data-open="${exCat?.id || ''}"><b>${exMin}/${s.exerciseGoal}′</b><span>🏋️ Ejercicio</span><div class="bar"><i style="width:${Math.min(100, exMin / s.exerciseGoal * 100)}%"></i></div></button>
+      ${fCat ? `<button class="goal-chip" data-open="${fCat.id}"><b>${fMin}/${fGoal}′</b><span>${esc(fCat.icon)} ${esc(fCat.name)}</span><div class="bar"><i style="width:${Math.min(100, fMin / fGoal * 100)}%"></i></div></button>` : ''}
     </div>
-    ${top3.length ? `<blockquote class="quote">“${esc(q)}”<br><b>${top3.map(t => esc(t.data.title)).join(' · ')}</b></blockquote>` : `<blockquote class="quote">“${esc(q)}”</blockquote>`}
-    ${!empty ? `<p class="small ${need > free ? 'warn-text' : 'muted'}">${need > free ? `Necesitas ~${need} min y tienes ${free}. Céntrate en los tres primeros.` : `Te caben: ~${need} min de ${free}.`}</p>` : ''}
+    <p class="quote">${esc(q)}</p>
+    ${all.length ? `<p class="note-line ${need > free ? 'warn' : ''}">${need > free ? `Necesitas unos ${need} min y tienes ${free}. Céntrate en lo rojo y lo naranja.` : `Te cabe todo: unos ${need} min de ${free}.`}</p>` : ''}
   </section>`;
 }
 
-function alertsHtml() {
+function alertCards() {
+  if (S.date !== today()) return '';
   const out = [];
-  const isToday = S.date === today();
-  if (!isToday) return '';
-  // IPL
   const zones = itemsOf('care').filter(i => i.data.group === 'ipl');
-  const dueZones = zones.filter(z => careStatus(z).due);
-  if (dueZones.length) {
-    const block = iplBlock();
-    const restart = dueZones.some(z => careStatus(z).restart);
-    out.push(`<a class="alert ${block.length ? 'warn' : 'accent'}" href="#/cuidado/ipl">${block.length ? icon('lock') : '✨'}
-      <span><b>IPL:</b> ${dueZones.map(z => esc(z.data.name)).join(', ')}${restart ? ' · reinicia fase inicial' : ''}${block.length ? `<br><span class="small">${esc(block[0].msg)}</span>` : ''}</span></a>`);
+  const dueZ = zones.filter(z => careStatus(z).due);
+  if (dueZ.length) {
+    const block = iplBlock(); const restart = dueZ.some(z => careStatus(z).restart);
+    out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${block.length ? '#C2475B' : CARE_GROUP_COLORS.ipl}"><div class="rc-top">${block.length ? '🔒' : '✨'}<span>IPL</span></div>
+      <b>${dueZ.map(z => esc(z.data.name)).join(', ')}</b><span>${block.length ? esc(block[0].msg) : restart ? 'Toca reiniciar la fase inicial.' : 'Te toca sesión.'}</span></a>`);
   }
-  // Otros calendarios
-  const due = itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due);
-  due.slice(0, 5).forEach(i => out.push(`<div class="alert"><span class="ci">${esc(i.data.icon)}</span><span class="grow">${esc(i.data.name)} <span class="muted small">· ${careStatus(i).label}</span></span><button class="btn tiny" data-care="${i.id}">Hecho</button></div>`));
-  // Caducidad
+  itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => out.push(`
+    <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#7A7068'}"><div class="rc-top">${esc(i.data.icon)}<span>${careStatus(i).label}</span></div>
+      <b>${esc(i.data.name)}</b><button class="btn tiny" data-care="${i.id}">Hecho</button></div>`));
   const exp = products().map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30).sort((a, b) => a.e.days - b.e.days);
-  if (exp.length) out.push(`<a class="alert" href="#/cuidado/inventario">⏳<span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} <span class="muted small">${x.e.days < 0 ? 'caducado' : `caduca ${relDay(x.e.exp)}`}</span>`).join('<br>')}</span></a>`);
-  // Compatibilidad
+  if (exp.length) out.push(`<a class="rcard" href="#/cuidado/inventario" style="--c:#7A7068"><div class="rc-top">⏳<span>${exp.length}</span></div><b>Caducan pronto</b><span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} (${x.e.days < 0 ? 'caducado' : relDay(x.e.exp)})`).join(', ')}</span></a>`);
   const warns = [...checkRoutine('am'), ...checkRoutine('pm')].filter(r => r.level === 'warn');
-  if (warns.length) out.push(`<a class="alert warn" href="#/cuidado/rutinas">⚠️<span>${esc(warns[0].msg)}</span></a>`);
-  // Lavado de pelo tras días sudorosos
-  const ex = S.cats.find(c => c.type === 'exercise' && c.active);
-  const hw = catByKey('hair_wash');
-  if (ex && hw) {
-    const sweaty = getVal(ex.id, today())?.sweat;
-    const washedToday = getVal(hw.id, today());
-    const lastWash = [0, 1, 2, 3].map(n => addDays(today(), -n)).find(d => getVal(hw.id, d));
-    if (sweaty && !washedToday) out.push(`<div class="alert">🚿<span>Entreno muy sudoroso${lastWash ? ` y último lavado ${relDay(lastWash)}` : ''}: ${lastWash && diffDays(today(), lastWash) >= 1 ? 'hoy toca lavar.' : 'aclara con agua y acondicionador en medios y puntas.'}</span></div>`);
+  if (warns.length) out.push(`<a class="rcard" href="#/cuidado/rutinas" style="--c:#C2475B"><div class="rc-top">⚠️</div><b>Revisa tu rutina</b><span>${esc(warns[0].msg)}</span></a>`);
+  const ex = S.cats.find(c => c.type === 'exercise' && c.active); const hw = catByKey('hair_wash');
+  if (ex && hw && getVal(ex.id, today())?.sweat && !getVal(hw.id, today())) {
+    const last = [0, 1, 2, 3].map(n => addDays(today(), -n)).find(d => getVal(hw.id, d));
+    out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.pelo}"><div class="rc-top">🚿</div><b>Pelo tras entreno sudoroso</b><span>${last && diffDays(today(), last) >= 1 ? `Último lavado ${relDay(last)}: hoy toca lavar.` : 'Aclara con agua y acondicionador en medios y puntas.'}</span></div>`);
   }
-  // Domingo: resumen
-  if (parseDay(today()).getDay() === 0) out.push(`<a class="alert accent" href="#/progreso">🗓️<span><b>Es domingo:</b> mira tu resumen semanal.</span></a>`);
-  return out.length ? `<section class="alerts">${out.join('')}</section>` : '';
+  if (parseDay(today()).getDay() === 0) out.push(`<a class="rcard" href="#/progreso" style="--c:var(--pc)"><div class="rc-top">🗓️</div><b>Resumen de la semana</b><span>Mira cómo te ha ido y lo que viene.</span></a>`);
+  return out.length ? `<div class="section-head"><h2>Para hoy</h2><span class="small muted">${out.length}</span></div><div class="rail-cards">${out.join('')}</div>` : '';
 }
 
-function weatherCard() {
-  const w = S.weather;
-  if (!w || S.date !== today()) return '';
-  const tips = weatherTips(w);
-  return `<section class="card wx">
-    <div class="wx-top"><div><p class="eyebrow">${esc(settings().city)}</p><p class="wx-temp">${Math.round(w.temp)}°</p></div>
-      <div class="wx-stats"><span>UV <b>${Math.round(w.uv ?? 0)}</b> · máx ${Math.round(w.uvMax ?? 0)}</span><span>Humedad <b>${w.hum}%</b></span><span>${Math.round(w.tMin)}° / ${Math.round(w.tMax)}°</span></div></div>
-    ${tips.map(t => `<p class="wx-tip ${t.tone}">${icon(t.icon)}<span>${esc(t.msg)}</span></p>`).join('')}
-  </section>`;
-}
-
+let hoyFilter = 'Todo';
 export function renderHoy(view) {
-  const day = S.date;
-  const isToday = day === today();
+  const day = S.date; const isToday = day === today();
   const cats = activeCats();
+  const habits = cats.filter(isHabit);
   const pct = dayCompletion(day);
-  const hour = new Date().getHours();
-  const hello = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
-  const sections = SECTIONS.concat([...new Set(cats.map(c => c.section))].filter(s => !SECTIONS.includes(s)));
-  view.innerHTML = `
-    ${header(isToday ? `${hello}, ${esc(S.profile.name)}` : esc(fmtLong(day)), isToday ? fmtLong(day) : 'Editando otro día')}
-    <div class="daynav">
-      <button class="icon-btn" id="prevD" aria-label="Día anterior">${icon('left')}</button>
-      <button class="chip ${isToday ? 'on' : ''}" id="todayD">${isToday ? 'Hoy' : 'Volver a hoy'}</button>
-      <button class="icon-btn" id="nextD" aria-label="Día siguiente" ${isToday ? 'disabled' : ''}>${icon('right')}</button>
+  const h = new Date().getHours();
+  const hello = h < 13 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const rank = s => { const i = SECTIONS.indexOf(s); return i < 0 ? 99 : i; };
+  const secs = [...new Set(cats.map(c => c.section))].sort((a, b) => rank(a) - rank(b));
+  if (hoyFilter !== 'Todo' && !secs.includes(hoyFilter)) hoyFilter = 'Todo';
+  const shown = hoyFilter === 'Todo' ? cats : cats.filter(c => c.section === hoyFilter);
+  const ordered = hoyFilter === 'Todo' ? secs.flatMap(s => shown.filter(c => c.section === s)) : shown;
+  const w = S.weather; const tips = isToday ? weatherTips(w) : [];
+  view.innerHTML = `${topbar()}
+    <div class="hero">
+      <p class="date">${isToday ? fmtLong(day) : 'Editando otro día'}</p>
+      <h1>${isToday ? `${hello},<br>${esc(S.profile.name)}` : esc(fmtLong(day))}</h1>
     </div>
+    <div class="today-top">
+      ${ring(pct)}
+      <div class="wx-mini">
+        <div class="wx-line"><b>${habits.filter(c => isDone(c, getVal(c.id, day))).length} de ${habits.length}</b> hábitos hechos</div>
+        ${w && isToday ? `<div class="wx-line"><span class="wx-temp">${Math.round(w.temp)}°</span><span class="muted">${esc(settings().city)} · UV ${Math.round(w.uvMax ?? 0)} · humedad ${w.hum}%</span></div>` : ''}
+        <div class="row gap"><button class="icon-btn" id="prevD" aria-label="Día anterior" style="background:var(--soft)">${icon('left')}</button>
+          ${isToday ? '' : '<button class="chip on" id="todayD">Volver a hoy</button>'}
+          <button class="icon-btn" id="nextD" aria-label="Día siguiente" style="background:var(--soft)" ${isToday ? 'disabled' : ''}>${icon('right')}</button></div>
+      </div>
+    </div>
+    ${tips.length ? tips.map(t => `<p class="note ${t.tone === 'warn' ? 'warn' : ''}" style="margin:0 0 8px">${t.icon === 'sun' ? '☀️' : '💧'} ${esc(t.msg)}</p>`).join('') : ''}
     ${isToday ? planCard() : ''}
-    ${alertsHtml()}
-    ${weatherCard()}
-    <section class="card progress-card"><div>${ring(pct)}</div><div><h3>${pct >= 1 ? 'Día completo ✨' : 'Tus hábitos'}</h3>
-      <p class="muted small">${cats.filter(isHabit).filter(c => isDone(c, getVal(c.id, day))).length} de ${cats.filter(isHabit).length} hechos</p></div></section>
-    <div id="checklist">
-    ${cats.length ? sections.map(sec => {
-      const list = cats.filter(c => c.section === sec);
-      if (!list.length) return '';
-      return `<h4 class="sec-title">${esc(sec)}</h4><div class="habits">${list.map(c => catRow(c, day)).join('')}</div>`;
-    }).join('') : `<div class="card empty"><p>No tienes categorías activas.</p><a class="btn ghost" href="#/mas/categorias">Añadir categorías</a></div>`}
-    </div>`;
-  bindHeader(view);
+    ${alertCards()}
+    <div class="section-head"><h2>Hábitos</h2><a href="#/ajustes/categorias">Editar</a></div>
+    <div class="filter"><div class="chips rail">
+      <button class="chip ${hoyFilter === 'Todo' ? 'on' : ''}" data-f="Todo">Todo</button>
+      ${secs.map(s => `<button class="chip ${hoyFilter === s ? 'c-on' : ''}" data-f="${esc(s)}" style="--c:${sectionColor(s)}"><span class="swatch-dot"></span>${esc(s)}</button>`).join('')}
+    </div></div>
+    ${cats.length ? `<div class="tiles" id="tiles">${ordered.map(c => tile(c, day)).join('')}</div>`
+      : '<div class="card empty"><p>No tienes hábitos activos.</p><a class="btn primary" href="#/ajustes/categorias">Añadir hábitos</a></div>'}`;
   $('#prevD').onclick = () => { S.date = addDays(S.date, -1); rerender(); };
   $('#nextD').onclick = () => { if (S.date < today()) { S.date = addDays(S.date, 1); rerender(); } };
-  $('#todayD').onclick = () => { S.date = today(); rerender(); };
-  bindCatControls($('#checklist'), day, () => rerender());
-  $$('[data-task]').forEach(b => b.onclick = async () => {
+  $('#todayD')?.addEventListener('click', () => { S.date = today(); rerender(); });
+  $$('[data-f]', view).forEach(b => b.onclick = () => { hoyFilter = b.dataset.f; rerender(); });
+  $$('[data-tile]', view).forEach(b => b.onclick = async () => {
+    const c = S.cats.find(x => x.id === b.dataset.tile);
+    if (c.type === 'bool') {
+      const nv = !getVal(c.id, day);
+      b.classList.toggle('done', nv); navigator.vibrate?.(10);
+      await setVal(c.id, nv, day);
+      if (nv && dayCompletion(day) >= 1) toast('Día completo ✨');
+      rerender();
+    } else habitSheet(c, day, rerender);
+  });
+  $$('[data-open]', view).forEach(b => b.onclick = () => { const c = S.cats.find(x => x.id === b.dataset.open); if (c) habitSheet(c, today(), rerender); });
+  $$('[data-task]', view).forEach(b => b.onclick = async () => {
     const t = S.items.find(i => i.id === b.dataset.task);
-    b.classList.add('done');
-    await saveItem(t, { done: true, doneAt: today() });
-    toast('¡Hecho! ✨'); setTimeout(rerender, 350);
+    b.classList.add('done'); await saveItem(t, { done: true, doneAt: today() });
+    toast('Tarea hecha'); setTimeout(rerender, 350);
   });
-  $$('[data-care]').forEach(b => b.onclick = async () => {
-    await markCareDone(S.items.find(i => i.id === b.dataset.care)); toast('Registrado'); rerender();
-  });
-  const fb = $('#freeBtn');
-  if (fb) fb.onclick = () => sheet('Tiempo disponible hoy', `
-      <p class="muted">¿Cuántos minutos libres tienes hoy para tareas, ejercicio y proyecto?</p>
-      <div class="chips wrap">${[30, 60, 90, 120, 180, 240].map(m => `<button class="chip" data-m="${m}">${m} min</button>`).join('')}</div>
+  $$('[data-care]', view).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.care)); toast('Registrado'); rerender(); });
+  $('#freeBtn')?.addEventListener('click', () => sheet('Tiempo libre hoy', `
+      <p class="muted">¿Cuántos minutos tienes hoy para tareas, ejercicio y foco?</p>
+      <div class="chips">${[30, 60, 90, 120, 180, 240].map(m => `<button class="chip" data-m="${m}">${m} min</button>`).join('')}</div>
       <label class="field mt"><span>Otro</span><input type="number" id="freeIn" inputmode="numeric"></label>
       <button class="btn primary block mt" id="freeOk">Guardar</button>`, body => {
     const save = async m => { await saveSettings({ todayFree: { day: today(), min: m } }); closeSheet(); rerender(); };
     $$('[data-m]', body).forEach(b => b.onclick = () => save(Number(b.dataset.m)));
     $('#freeOk', body).onclick = () => { const v = Number($('#freeIn', body).value); if (v) save(v); };
-  });
-}
-
-// ---------------- CALENDARIO ----------------
-let calMonth = null; let calCat = 'all';
-function renderCalendar(view) {
-  if (!calMonth) { const d = new Date(); calMonth = [d.getFullYear(), d.getMonth()]; }
-  const [y, m] = calMonth;
-  const first = new Date(y, m, 1);
-  const startOffset = (first.getDay() + 6) % 7; // lunes primero
-  const daysIn = new Date(y, m + 1, 0).getDate();
-  const cats = activeCats().filter(c => c.type !== 'text');
-  const cat = cats.find(c => c.id === calCat);
-  const logs = itemsOf('carelog');
-  const tasksDue = itemsOf('task').filter(t => t.data.due && !t.data.done);
-  const period = catByKey('period');
-  const cells = [];
-  for (let i = 0; i < startOffset; i++) cells.push('<div class="cday empty"></div>');
-  for (let d = 1; d <= daysIn; d++) {
-    const ds = dayStr(new Date(y, m, d));
-    const future = ds > today();
-    let level = 0;
-    if (!future) {
-      if (cat) {
-        const v = getVal(cat.id, ds);
-        if (cat.type === 'scale') level = v ? Math.ceil(Number(v) / 5 * 4) : 0;
-        else level = isDone(cat, v) ? 4 : 0;
-      } else level = Math.ceil(dayCompletion(ds) * 4);
-    }
-    const marks = [];
-    if (logs.some(l => l.data.day === ds && l.data.group === 'ipl')) marks.push('<i class="mk ipl"></i>');
-    else if (logs.some(l => l.data.day === ds)) marks.push('<i class="mk care"></i>');
-    if (period && getVal(period.id, ds)) marks.push('<i class="mk period"></i>');
-    if (tasksDue.some(t => t.data.due === ds)) marks.push('<i class="mk task"></i>');
-    cells.push(`<button class="cday l${level} ${ds === today() ? 'today' : ''} ${future ? 'future' : ''}" data-day="${ds}">
-      <span>${d}</span><span class="mks">${marks.join('')}</span></button>`);
-  }
-  // Próximos 14 días
-  const upcoming = [];
-  itemsOf('care').forEach(i => { const st = careStatus(i); if (diffDays(st.next, today()) <= 14) upcoming.push({ day: st.next < today() ? today() : st.next, label: `${i.data.group === 'ipl' ? 'IPL · ' : ''}${i.data.name}`, icon: i.data.icon || '•' }); });
-  tasksDue.forEach(t => { if (diffDays(t.data.due, today()) <= 14) upcoming.push({ day: t.data.due, label: t.data.title, icon: '☐' }); });
-  upcoming.sort((a, b) => a.day.localeCompare(b.day));
-
-  view.innerHTML = `
-    ${header('Calendario', 'Tu mes de un vistazo')}
-    <div class="card">
-      <div class="row between mb">
-        <button class="icon-btn" id="pm">${icon('left')}</button>
-        <h3 class="cap">${MONTHS[m]} ${y}</h3>
-        <button class="icon-btn" id="nm">${icon('right')}</button>
-      </div>
-      <select class="input" id="calCat"><option value="all">Todos los hábitos (% del día)</option>
-        ${cats.map(c => `<option value="${c.id}" ${c.id === calCat ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
-      <div class="cal-head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span>${d}</span>`).join('')}</div>
-      <div class="cal">${cells.join('')}</div>
-      <div class="legend"><span><i class="mk ipl"></i>IPL</span><span><i class="mk care"></i>Cuidado</span>${period ? '<span><i class="mk period"></i>Periodo</span>' : ''}<span><i class="mk task"></i>Tarea</span></div>
-    </div>
-    <h4 class="sec-title">Próximos 14 días</h4>
-    <div class="card list">${upcoming.length ? upcoming.map(u => `<div class="li"><span class="ci">${esc(u.icon)}</span><span class="grow">${esc(u.label)}</span><span class="muted small">${u.day === today() ? 'hoy' : fmtShort(u.day)}</span></div>`).join('') : '<p class="muted">Nada programado.</p>'}</div>`;
-  bindHeader(view);
-  $('#pm').onclick = () => { calMonth = m === 0 ? [y - 1, 11] : [y, m - 1]; rerender(); };
-  $('#nm').onclick = () => { calMonth = m === 11 ? [y + 1, 0] : [y, m + 1]; rerender(); };
-  $('#calCat').onchange = e => { calCat = e.target.value; rerender(); };
-  $$('.cday[data-day]').forEach(b => b.onclick = () => {
-    if (b.classList.contains('future')) return;
-    S.date = b.dataset.day; go('#/hoy');
-  });
+  }));
 }
 
 // ---------------- Service worker ----------------
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
-export { weeklySummaryHtml };
 
 boot();

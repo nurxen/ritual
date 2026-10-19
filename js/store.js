@@ -30,7 +30,38 @@ export async function loadProfileData(profile) {
   S.cats = cats.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
   S.entries = new Map(entries.map(e => [ek(e.category_id, e.day), e]));
   S.items = items;
+  await migrate();
 }
+
+// Cambios de la versión 2: separar estudiar y arte, proyecto opcional
+async function migrate() {
+  const done = S.profile.settings?.migrations || [];
+  if (done.includes('v2') || !S.profile.onboarded) return;
+  const old = S.cats.find(c => c.key === 'art_study');
+  if (old) {
+    await db.update('categories', old.id, { key: 'art', name: 'Algo artístico', icon: '🎨' });
+    Object.assign(old, { key: 'art', name: 'Algo artístico', icon: '🎨' });
+  }
+  if (old && !S.cats.some(c => c.key === 'study')) {
+    const c = CATALOG.find(x => x.key === 'study');
+    const [row] = await db.insert('categories', { profile_id: S.profile.id, key: c.key, name: c.name, icon: c.icon, type: c.type, section: c.section, target: c.target, active: true, sort: (old.sort ?? 0) + 0.5, config: {} });
+    S.cats.push(row); S.cats.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+  }
+  const proj = S.cats.find(c => c.key === 'project');
+  if (proj && ![...S.entries.values()].some(e => e.category_id === proj.id)) {
+    await db.update('categories', proj.id, { active: false, name: 'Proyecto personal', icon: '🚀' });
+    Object.assign(proj, { active: false, name: 'Proyecto personal', icon: '🚀' });
+  }
+  await saveSettings({ migrations: [...done, 'v2'] });
+}
+
+// Token secreto para el calendario suscrito (Google / Apple)
+export async function calToken() {
+  let t = S.profile.settings?.calToken;
+  if (!t) { t = db.uuid().replace(/-/g, ''); await saveSettings({ calToken: t }); }
+  return t;
+}
+export async function resetCalToken() { await saveSettings({ calToken: null }); return calToken(); }
 
 // ---------------- Perfiles ----------------
 export async function updateProfile(patch) {
@@ -195,6 +226,25 @@ export async function markCareDone(it, day = today()) {
   await addItem('carelog', { careId: it.id, day, name: d.name, group: d.group });
 }
 export const careLogs = () => itemsOf('carelog');
+
+// Próximos eventos (para la agenda y Google Calendar)
+export function upcomingEvents(days = 60) {
+  const out = [];
+  for (const i of itemsOf('care')) {
+    const st = careStatus(i);
+    if (st.unset || diffDays(st.next, today()) > days) continue;
+    out.push({ id: i.id, day: st.next < today() ? today() : st.next, title: `${i.data.group === 'ipl' ? 'IPL · ' : ''}${i.data.name}`, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
+  }
+  for (const t of itemsOf('task')) {
+    if (t.data.done || !t.data.due || diffDays(t.data.due, today()) > days) continue;
+    out.push({ id: t.id, day: t.data.due, title: t.data.title, icon: '☐', kind: 'task' });
+  }
+  for (const g of itemsOf('goal')) {
+    if (g.data.done || !g.data.deadline || diffDays(g.data.deadline, today()) > days || g.data.deadline < today()) continue;
+    out.push({ id: g.id, day: g.data.deadline, title: `Objetivo: ${g.data.title}`, icon: '🎯', kind: 'goal' });
+  }
+  return out.sort((a, b) => a.day.localeCompare(b.day));
+}
 
 // ---------------- IPL: ¿se puede hoy? ----------------
 export function lastWorkout() {
