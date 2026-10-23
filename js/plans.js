@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 3,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Rutina con modo esencial y doble limpieza solo si te maquillas; tus esponjas, triángulos y brochas en el inventario; guía de maquillaje y herramientas; cuándo ponerte la mascarilla hidratante.',
+  version: 4,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Temporizadores: lotion pack, aceite limpiador, mascarillas, espera antes del corrector y del maquillaje.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -23,7 +23,7 @@ export const PLANS = [{
     // ---------------- Cuidado facial ----------------
     { match: 'anua', name: 'Heartleaf Pore Control Cleansing Oil', brand: 'Anua', type: 'Aceite limpiador', area: 'Cuidado facial', onlyIfMakeup: true,
       status: 'wish', price: 12.98, store: 'Stylevana', slot: 'pm', step: 1, meanwhile: 'agua micelar (Yves Rocher o Deliplus), aclarándola después con el limpiador',
-      note: 'Solo las noches que te hayas maquillado (o lleves protector resistente al agua): masajea 1 minuto en seco, insistiendo en la nariz, y aclara. Después, tu espuma.' },
+      timerSec: 60, timerKind: 'massage', timerAfter: 'Moja las manos, emulsiona hasta que se vuelva lechoso, aclara y sigue con la espuma.', note: 'Solo las noches que te hayas maquillado (o lleves protector resistente al agua): masajea 1 minuto en seco, insistiendo en la nariz, y aclara. Después, tu espuma.' },
     { match: 's[ée]bium|bioderma', name: 'Sébium Gel Moussant', brand: 'Bioderma', type: 'Limpiador', area: 'Cuidado facial',
       status: 'keep', slot: 'both', step: 1, stepPm: 2, pmDays: [2, 4, 6],
       note: 'Mañana: limpieza suave (o solo agua si anoche hiciste doble limpieza). Noche: segunda limpieza los días sin CeraVe. Vuelve a comprarlo.' },
@@ -32,9 +32,9 @@ export const PLANS = [{
       note: '3–4 noches por semana (lunes, miércoles, viernes y domingo). Las otras noches, Bioderma.' },
     { match: 'rice milk|boj glow|beauty of joseon.*glow', name: 'Glow Replenishing Rice Milk', brand: 'Beauty of Joseon', type: 'Tónico', area: 'Cuidado facial',
       status: 'wish', price: 11.70, store: 'Stylevana', slot: 'both', step: 2, stepPm: 3, meanwhile: 'el Tónico Clean Deliplus si no lleva alcohol denat. (si no, la Keana)',
-      note: '2–3 capas por la mañana, o lotion pack si te vas a maquillar. Sustituye a la Keana.' },
+      timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos antes de que se sequen y pon la hidratante con la piel aún húmeda.', note: '2–3 capas por la mañana, o lotion pack si te vas a maquillar. Sustituye a la Keana.' },
     { match: 'keana', name: 'Tónico de arroz', brand: 'Keana', type: 'Tónico', area: 'Cuidado facial',
-      status: 'useup', slot: 'none', note: 'Guárdala para eventos.' },
+      status: 'useup', slot: 'none', timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos y pon la hidratante con la piel aún húmeda.', note: 'Guárdala para eventos.' },
     { match: 'glow.*(lifting|niacin)|deliplus.*glow', name: 'Sérum Glow niacinamida y platino', brand: 'Deliplus', type: 'Sérum', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'am', step: 3, tags: ['niacinamide'],
       note: 'Por las mañanas, después del tónico, hasta acabarlo. Es tu única niacinamida de día. No hace falta recomprarlo.' },
@@ -52,10 +52,10 @@ export const PLANS = [{
       note: 'Hasta acabarla. Pon también un poco en la ojera.' },
     { match: 'purito.*bamboo|panthenol', name: 'Mighty Bamboo Panthenol Cream', brand: 'Purito', type: 'Crema', area: 'Cuidado facial',
       status: 'wish', price: 14.20, store: 'Stylevana', slot: 'none',
-      note: 'El pantenol repara la barrera. Sustituye a la Vichy cuando se acabe, va en la ojera antes del corrector y calma la piel tras el IPL (24–48 h, sin perfume).' },
+      timerSec: 180, timerKind: 'wait', timerLabel: 'Espera antes del corrector (3 min)', timerAfter: 'Ya puedes poner el corrector en la ojera, poca cantidad y a toques.', note: 'El pantenol repara la barrera. Sustituye a la Vichy cuando se acabe, va en la ojera antes del corrector y calma la piel tras el IPL (24–48 h, sin perfume).' },
     { match: 'relief sun', name: 'Relief Sun Duo Set (original + Aqua-Fresh)', brand: 'Beauty of Joseon', type: 'Protector solar', area: 'Cuidado facial',
       status: 'wish', price: 23.40, store: 'Stylevana', slot: 'am', step: 7, tags: ['spf'], meanwhile: 'el fluido solar Deliplus',
-      note: 'Aqua-Fresh para días de calor y de entreno; el original para invierno o piel seca. Alternativa igual de buena: SKIN1004 Hyalu-Cica Sun Serum.' },
+      timerSec: 300, timerKind: 'wait', timerLabel: 'Espera antes del maquillaje', timerAfter: 'Ya puedes ponerte el corrector o el skin tint, a toques.', note: 'Aqua-Fresh para días de calor y de entreno; el original para invierno o piel seca. Alternativa igual de buena: SKIN1004 Hyalu-Cica Sun Serum.' },
     { match: 'fluido solar|deliplus.*spf', name: 'Fluido solar facial SPF 50+', brand: 'Deliplus', type: 'Protector solar', area: 'Cuidado facial',
       status: 'useup', slot: 'none', tags: ['spf'],
       note: 'En la cara solo hasta que tengas el Relief Sun. Después, gástalo en cuello, manos y cuerpo.' },
@@ -197,10 +197,10 @@ export const PLANS = [{
     { match: 'sand[ií]a.*champ|champ.*sand[ií]a', name: 'Champú Sandía (o Aloe Vera)', brand: 'Hair Food', type: 'Champú', area: 'Pelo',
       status: 'wish', store: 'Primor', note: 'Más ligero que el de Banana: limpia sin apelmazar. Solo en el cuero cabelludo.' },
     { match: 'sand[ií]a.*(mascarilla|3 en 1)|mascarilla.*sand[ií]a', name: 'Mascarilla Sandía 3 en 1', brand: 'Hair Food', type: 'Mascarilla', area: 'Pelo',
-      status: 'wish', price: 4.34, store: 'Primor', note: 'Pensada para pelo fino: hace de acondicionador, mascarilla o leave-in. No necesitas acondicionador aparte.' },
+      status: 'wish', price: 4.34, store: 'Primor', timerSec: 180, timerKind: 'on', timerAfter: 'Aclara. Como acondicionador basta con poco tiempo; como mascarilla, lo que diga el envase.', note: 'Pensada para pelo fino: hace de acondicionador, mascarilla o leave-in. No necesitas acondicionador aparte.' },
     { match: 'cacao|banana|mascarilla hidratante de pelo', name: 'Mascarilla Banana 3 en 1 (la amarilla)', brand: 'Hair Food', type: 'Mascarilla', area: 'Pelo',
       status: 'useup', replaceWith: 'Mascarilla Hair Food Sandía 3 en 1',
-      note: 'Es pesada para tu pelo fino: úsala como mascarilla de aclarado una vez por semana, solo de medios a puntas. No como leave-in. Cuando se acabe, la Sandía.' },
+      timerSec: 300, timerKind: 'on', timerAfter: 'Aclara bien, solo había que ponerla de medios a puntas. Ajusta el tiempo a lo que diga el envase.', note: 'Es pesada para tu pelo fino: úsala como mascarilla de aclarado una vez por semana, solo de medios a puntas. No como leave-in. Cuando se acabe, la Sandía.' },
     { match: 'curl perfect.*leave|leave-?in|crema hidratante de rizos', name: 'Curl Perfect Leave-in', brand: 'Deliplus', type: 'Leave-in', area: 'Pelo',
       status: 'keep', note: 'Tu leave-in de verdad: más ligero que cualquier mascarilla. Rizos con volumen: leave-in + mousse. Rizos definidos: leave-in + gel.' },
     { match: 'curl perfect.*gel|gel activador|fix 3|gel para rizos', name: 'Curl Perfect Gel activador (Fix 3)', brand: 'Deliplus', type: 'Gel', area: 'Pelo',
@@ -227,13 +227,13 @@ export const PLANS = [{
     { match: 'micelar.*deliplus|deliplus.*micelar', name: 'Agua micelar', brand: 'Deliplus', type: 'Desmaquillante', area: 'Cuidado facial',
       status: 'useup', note: 'Primer paso de la doble limpieza hasta que llegue el aceite Anua, siempre aclarando después con el limpiador. Luego guarda una de las dos micelares solo para los ojos. No la recompres.' },
     { match: 't[oó]nico.*clean|clean.*t[oó]nico', name: 'Tónico Facial Clean', brand: 'Deliplus', type: 'Tónico', area: 'Cuidado facial',
-      status: 'use', note: 'Mira la etiqueta: si NO lleva alcohol denat. entre los primeros ingredientes, úsalo para la lotion pack hasta que llegue el de Beauty of Joseon. Si lo lleva, úsalo en cuello y escote, o déjalo.' },
+      status: 'use', timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos y pon la hidratante con la piel aún húmeda.', note: 'Mira la etiqueta: si NO lleva alcohol denat. entre los primeros ingredientes, úsalo para la lotion pack hasta que llegue el de Beauty of Joseon. Si lo lleva, úsalo en cuello y escote, o déjalo.' },
     { match: 'elizabeth arden|muestras', name: 'Muestras', brand: 'Elizabeth Arden', type: 'Sérum', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'pm', step: 5, note: 'Úsalas de noche antes de la crema hasta gastarlas.' },
 
     // ---------------- Cuerpo y perfume ----------------
     { match: 'exfoliante.*sol|sol beauty.*exfol', name: 'Exfoliante corporal', brand: 'Sol Beauty', type: 'Exfoliante corporal', area: 'Cuerpo',
-      status: 'wish', store: 'Primor', note: 'Cuando haya stock. 1–2 veces por semana; nunca 48 h antes ni después del IPL.' },
+      status: 'wish', store: 'Primor', timerSec: 60, timerKind: 'massage', timerAfter: 'Aclara con agua templada sin frotar más. Recuerda: nada de exfoliante 48 h antes ni después del IPL.', note: 'Cuando haya stock. 1–2 veces por semana; nunca 48 h antes ni después del IPL.' },
     { match: 'crema.*(caramel|vainilla)|sol beauty.*crema', name: 'Crema corporal caramelo salado y vainilla', brand: 'Sol Beauty', type: 'Corporal', area: 'Cuerpo',
       status: 'wish', store: 'Primor', note: 'Cuando haya stock. Mejor que el aceite seco: hidrata y fija el perfume. Encima, Good Girl.' },
     { match: 'salted caramel|bruma|fragrance mist|body mist', name: 'Bruma salted caramel vanilla', brand: '', type: 'Bruma corporal', area: 'Cuerpo',
@@ -288,7 +288,8 @@ export const PLANS = [{
   care: ['deep_wash', 'roller_wash', 'body_scrub', 'hairbrush_clean', 'sponge_replace', 'brushes'],
   careUpdates: {
     body_scrub: { interval: 4, tip: '1–2 veces por semana. Nunca 48 h antes ni después de una sesión de IPL.' },
-    face_mask: { tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
+    face_mask: { timerSec: 900, timerKind: 'on', timerAfter: 'Retírala, extiende lo que sobre y sella con la hidratante. Ajusta el tiempo a lo que diga el envase.', tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
+    hair_mask: { timerSec: 300, timerKind: 'on', timerAfter: 'Aclara bien. Ajusta el tiempo a lo que diga el envase.' },
     brushes: { name: 'Lavar brochas, esponjas y triángulos', interval: 7, tip: 'Esponjas, triángulos y brochas de base o corrector: cada semana. Brochas de ojos: cada 2 semanas. Brochas de polvo: al menos una vez al mes. Champú suave y secar en plano, cerdas colgando del borde.' },
   },
   tasks: [

@@ -87,10 +87,10 @@ export const CARE_CATALOG = [
   { key: 'ipl_brazos', group: 'ipl', name: 'Brazos', head: 'Cabezal cuerpo / brazos', icon: '◓' },
   { key: 'ipl_cara', group: 'ipl', name: 'Cara', head: 'Cabezal cara', icon: '○' },
 
-  { key: 'face_mask', group: 'piel', name: 'Mascarilla facial hidratante', icon: '🫧', interval: 7 },
+  { key: 'face_mask', group: 'piel', name: 'Mascarilla facial hidratante', icon: '🫧', interval: 7, timerSec: 900, timerKind: 'on', timerAfter: 'Retírala, extiende lo que sobre y sella con la hidratante. Ajusta el tiempo a lo que diga el envase.' },
   { key: 'body_scrub', group: 'cuerpo', name: 'Exfoliación corporal suave', icon: '🧽', interval: 4,
     tip: 'Suave y sin frotar fuerte. Evita la zona que vayas a tratar con IPL ese día.' },
-  { key: 'hair_mask', group: 'pelo', name: 'Mascarilla hidratante de pelo', icon: '🌊', interval: 7 },
+  { key: 'hair_mask', group: 'pelo', name: 'Mascarilla hidratante de pelo', icon: '🌊', interval: 7, timerSec: 300, timerKind: 'on', timerAfter: 'Aclara bien. Ajusta el tiempo a lo que diga el envase.' },
   { key: 'hair_oil', group: 'pelo', name: 'Aceite de puntas', icon: '💧', interval: 3 },
   { key: 'hair_cut', group: 'pelo', name: 'Sanear puntas (peluquería)', icon: '✂️', interval: 90 },
   { key: 'deep_wash', group: 'pelo', name: 'Lavado a fondo (2 pasadas de champú)', icon: '🫧', interval: 7,

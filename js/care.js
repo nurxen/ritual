@@ -10,6 +10,23 @@ import {
   CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES, STATUS, AREAS, MAKEUP_SUBS, DOW_SHORT, LIP_TRIGGERS,
 } from './data.js';
 import { topbar, rerender } from './app.js';
+import { TIMER_KINDS, suggestTimer, fmtShortSec, startTimer } from './timers.js';
+
+// Botón ⏱ para cualquier elemento con temporizador (producto, calendario o tinte)
+export const timerBtn = (id, sec, cls = 'tiny') => sec ? `<button type="button" class="btn ${cls} timer-btn" data-tmr="${id}">⏱ ${fmtShortSec(sec)}</button>` : '';
+const timerFields = d => `<h3 class="mt">Temporizador</h3>
+      <p class="small muted" style="margin-top:-4px">Para no dejarlo ni mucho ni poco: lo arrancas con ⏱ y te avisa al terminar.</p>
+      <div class="grid3"><label class="field"><span>Minutos</span><input type="number" min="0" name="tMin" value="${d.timerSec ? Math.floor(d.timerSec / 60) : ''}"></label>
+        <label class="field"><span>Segundos</span><input type="number" min="0" max="59" name="tSec" value="${d.timerSec ? d.timerSec % 60 : ''}"></label>
+        <label class="field"><span>Para</span><select name="timerKind">${Object.entries(TIMER_KINDS).map(([k, v]) => `<option value="${k}" ${(d.timerKind || 'on') === k ? 'selected' : ''}>${v.l}</option>`).join('')}</select></label></div>
+      <label class="field"><span>Al terminar, recuérdame…</span><input name="timerAfter" value="${esc(d.timerAfter || '')}" placeholder="Retira y aplica la hidratante"></label>
+      <div class="row gap wrap" id="tSug"></div>`;
+const readTimer = f => { const s = (Number(f.tMin) || 0) * 60 + (Number(f.tSec) || 0); const o = { timerSec: s || null, timerKind: f.timerKind || 'on', timerAfter: f.timerAfter || '' }; delete f.tMin; delete f.tSec; return o; };
+const bindTimerSuggest = (body, d) => {
+  const sg = suggestTimer(d); const box = $('#tSug', body); if (!box) return;
+  if (sg && !d.timerSec) { box.innerHTML = `<button type="button" class="chip small" id="useSug">Sugerido: ${fmtShortSec(sg.sec)} · ${TIMER_KINDS[sg.kind].l.toLowerCase()}</button>`;
+    $('#useSug', body).onclick = () => { $('[name=tMin]', body).value = Math.floor(sg.sec / 60); $('[name=tSec]', body).value = sg.sec % 60; $('[name=timerKind]', body).value = sg.kind; if (!$('[name=timerAfter]', body).value) $('[name=timerAfter]', body).value = sg.after; box.innerHTML = ''; }; }
+};
 
 const PAGES = {
   rutinas: { t: 'Rutinas', e: '🫧', c: '#F2A9BC', d: 'Mañana, noche y post-Box' },
@@ -82,7 +99,8 @@ function stepHtml(p, slot) {
     ${esc(d.name)}${d.brand ? ` <span class="muted small">${esc(d.brand)}</span>` : ''}
     ${wish && d.meanwhile ? `<br><span class="small muted">Mientras tanto: ${esc(d.meanwhile)}</span>` : ''}
     ${Array.isArray(days) && days.length ? `<br><span class="small" style="color:var(--c-ink)">${days.length} ${slot === 'pm' ? 'noches' : 'días'} por semana</span>` : ''}
-    ${d.note ? `<details class="small muted"><summary>Cómo usarlo</summary>${esc(d.note)}</details>` : ''}</span></li>`;
+    ${d.note ? `<details class="small muted"><summary>Cómo usarlo</summary>${esc(d.note)}</details>` : ''}
+    ${d.timerSec ? `<div class="mt-s">${timerBtn(p.id, d.timerSec)} <span class="small muted">${esc((d.timerLabel || TIMER_KINDS[d.timerKind || 'on'].l).toLowerCase())}</span></div>` : ''}</span></li>`;
 }
 function rutinas(root) {
   const has = products().length > 0;
@@ -337,6 +355,7 @@ function calendarios(root) {
         <div class="small muted">${i.data.group === 'ipl' ? (i.data.phase === 'mantenimiento' ? 'cada 4 semanas' : 'cada 2 semanas') : `cada ${i.data.interval} días`} · última ${i.data.last ? fmtShort(i.data.last) : '—'}</div>
         ${i.data.tip ? `<details class="small muted"><summary>Consejo</summary>${esc(i.data.tip)}</details>` : ''}
         <div class="row gap mt-s">${i.data.group === 'ipl' ? '<a class="btn tiny ghost" href="#/cuidado/ipl">Ver IPL</a>' : `<button class="btn tiny" data-ok="${i.id}">${icon('check')} ${st.unset ? 'Hecho hoy (empezar)' : 'Hecho hoy'}</button>`}
+        ${timerBtn(i.id, i.data.timerSec)}
         <button class="btn tiny ghost" data-ed="${i.id}">${icon('edit')} Editar</button></div></div></div>`;
     }).join('')}</div>`).join('') || '<p class="muted">Sin calendarios todavía.</p>'}
     <div class="row gap mt"><button class="btn primary grow" id="addCare">${icon('plus')} Nuevo calendario</button></div>
@@ -371,11 +390,14 @@ function careEdit(it) {
       <div class="grid2"><label class="field"><span>Cada (días)</span><input type="number" name="interval" value="${d.interval}"></label>
       <label class="field"><span>Última vez</span><input type="date" name="last" value="${d.last || ''}"></label></div>
       <label class="field"><span>Nota / consejo</span><input name="tip" value="${esc(d.tip || '')}"></label>
+      ${timerFields(d)}
       <div class="row gap">${it ? `<button class="btn danger ghost" id="del">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="save">Guardar</button></div>
     </div>`, body => {
+    bindTimerSuggest(body, { ...d, type: d.name });
     $('#save', body).onclick = async () => {
       const f = formData(body); if (!f.name) return toast('Ponle un nombre');
-      const data = { ...f, interval: f.interval || 7, last: f.last || null };
+      const tm = readTimer(f);
+      const data = { ...f, ...tm, interval: f.interval || 7, last: f.last || null };
       it ? await saveItem(it, data) : await addItem('care', data);
       closeSheet(); rerender();
     };
@@ -475,7 +497,7 @@ function inventario(root) {
     const e = productExpiry(p); const st = STATUS[pStatus(p)];
     const exp = !e ? '' : e.days < 0 ? '<span class="pill warn">Caducado</span>' : e.days <= 30 ? `<span class="pill accent">${e.days} d</span>` : '';
     return `<button class="li prod" data-p="${p.id}"><span class="stat" title="${st.d}" style="--c:${st.c}">${st.e}</span><div class="grow"><div>${esc(p.data.name)}</div>
-      <div class="small muted">${[p.data.brand, p.data.type].filter(Boolean).map(esc).join(', ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}</div>
+      <div class="small muted">${[p.data.brand, p.data.type].filter(Boolean).map(esc).join(', ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}${p.data.timerSec ? ` · ⏱ ${fmtShortSec(p.data.timerSec)}` : ''}</div>
       ${p.data.note ? `<div class="small" style="color:var(--ink-2);margin-top:2px">${esc(p.data.note.length > 90 ? p.data.note.slice(0, 90) + '…' : p.data.note)}</div>` : ''}</div>${exp}</button>`;
   };
   const norm = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -578,6 +600,8 @@ function productEdit(p, prefill = {}) {
       <div class="field"><span>Noches que toca (ninguno marcado = todas)</span>${dayPick('pmDays', d.pmDays)}</div>
       <div class="field"><span>Ingredientes clave</span><div class="chips">${Object.entries(TAG_LABELS).map(([k, l]) => `<label class="chip check small"><input type="checkbox" name="tags" data-multi="1" value="${k}" ${d.tags?.includes(k) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
       <label class="check-row"><input type="checkbox" name="leaveOn" ${d.leaveOn ? 'checked' : ''}><span>Se deja puesto (no se aclara)</span></label>
+      ${timerFields(d)}
+      ${d.timerSec ? `<div>${timerBtn(p?.id || '', d.timerSec, 'small')}</div>` : ''}
       <h3 class="mt">Caducidad y compra</h3>
       <div class="grid3"><label class="field"><span>Abierto el</span><input type="date" name="openedAt" value="${d.openedAt || ''}"></label>
       <label class="field"><span>PAO (meses)</span><input type="number" name="pao" value="${d.pao ?? ''}"></label>
@@ -591,11 +615,13 @@ function productEdit(p, prefill = {}) {
       <label class="check-row"><input type="checkbox" name="mini" ${d.mini ? 'checked' : ''}><span>Tengo versión mini</span></label></div>
       <div class="row gap">${p ? `<button class="btn danger ghost" id="del" aria-label="Borrar">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="save">Guardar</button></div>
     </div>`, body => {
+    bindTimerSuggest(body, d);
     $('#save', body).onclick = async () => {
       const f = formData(body); if (!f.name) return toast('Ponle un nombre');
       const radio = $('[name=status]:checked', body);
       const days = k => (f[k] || []).map(Number);
-      const data = { ...f, unopened: f.openedAt ? false : !!d.unopened, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
+      const tm = readTimer(f);
+      const data = { ...f, ...tm, unopened: f.openedAt ? false : !!d.unopened, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
       if (f.finished && !d.finished) data.finishedAt = today();
       if (!f.finished) data.finishedAt = null;
       if (f.price && !d.boughtAt && data.status !== 'wish') data.boughtAt = f.openedAt || today();
@@ -801,7 +827,8 @@ function tinte(root) {
       <div class="grow">${last ? `<h3>${esc(last.data.shade || last.data.type)}</h3><p class="small muted">${esc(last.data.brand || '')} ${esc(last.data.type)}, ${esc(last.data.place)} · ${relDay(last.data.day)}</p>`
         : '<h3>Tu color</h3><p class="small muted">Registra tu primer tinte para llevar el historial.</p>'}</div>
     </section>
-    <button class="btn color block" id="addDye">${icon('plus')} Registrar tinte</button>
+    <div class="row gap"><button class="btn color grow" id="addDye">${icon('plus')} Registrar tinte</button>
+      ${last ? `<button class="btn ghost timer-btn" data-tmr="${last.id}">⏱ Pose ${last.data.pose || 35}′</button>` : ''}</div>
     ${cals.length ? `<div class="section-head"><h2>Próximos</h2></div><div class="card list">${cals.map(i => {
       const st = careStatus(i);
       return `<div class="li"><span class="ci">${esc(i.data.icon)}</span><div class="grow"><div>${esc(i.data.name)}</div><div class="small muted">cada ${i.data.interval} días · última ${i.data.last ? fmtShort(i.data.last) : '—'}</div></div><span class="pill ${st.tone}">${st.label}</span></div>`;

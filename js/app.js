@@ -17,6 +17,7 @@ import { renderProgress } from './progress.js';
 import { renderAgenda } from './agenda.js';
 import { renderMente } from './mente.js';
 import { renderSettings, openMenu, planSheet } from './settings.js';
+import { startTimer, TIMER_KINDS, fmtShortSec } from './timers.js';
 import { planVersionApplied } from './store.js';
 
 const app = document.getElementById('app');
@@ -384,7 +385,7 @@ function alertCards() {
     const blk = i.data.key === 'body_scrub' ? scrubBlock() : null;
     out.push(`
     <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#CFC7BE'}"><div class="rc-top">${esc(i.data.icon)}<span>${blk ? 'Espera' : careStatus(i).label}</span></div>
-      <b>${esc(i.data.name)}</b>${blk ? `<span>${esc(blk)}</span>` : `<button class="btn tiny" data-care="${i.id}">Hecho</button>`}</div>`);
+      <b>${esc(i.data.name)}</b>${blk ? `<span>${esc(blk)}</span>` : `<div class="row gap" style="margin-top:auto">${i.data.timerSec ? `<button class="btn tiny" data-tmr="${i.id}">⏱ ${fmtShortSec(i.data.timerSec)}</button>` : ''}<button class="btn tiny" data-care="${i.id}">Hecho</button></div>`}</div>`);
   });
   const exp = products().map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30).sort((a, b) => a.e.days - b.e.days);
   if (exp.length) out.push(`<a class="rcard" href="#/cuidado/inventario" style="--c:#CFC7BE"><div class="rc-top">⏳<span>${exp.length}</span></div><b>Caducan pronto</b><span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} (${x.e.days < 0 ? 'caducado' : relDay(x.e.exp)})`).join(', ')}</span></a>`);
@@ -472,6 +473,21 @@ export function renderHoy(view) {
     $('#freeOk', body).onclick = () => { const v = Number($('#freeIn', body).value); if (v) save(v); };
   }));
 }
+
+// ---------------- Temporizadores: cualquier botón ⏱ de la app ----------------
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tmr]'); if (!b || !S.profile) return;
+  e.preventDefault(); e.stopPropagation();
+  const it = S.items.find(i => i.id === b.dataset.tmr); if (!it) return;
+  const d = it.data;
+  if (it.kind === 'dye') {
+    startTimer({ label: `Tinte: tiempo de pose`, sec: (Number(d.pose) || 35) * 60, after: 'Aclara hasta que el agua salga limpia y sigue las instrucciones de la caja.', color: '#E8B796' });
+  } else {
+    const k = TIMER_KINDS[d.timerKind || 'on'];
+    startTimer({ label: d.timerLabel || `${d.name}${d.brand ? ' · ' + d.brand : ''}`, sec: d.timerSec, after: d.timerAfter || k.done, color: it.kind === 'care' ? (CARE_GROUP_COLORS[d.group] || '#A7BCEB') : '#A7BCEB' });
+  }
+  toast(`⏱ En marcha: ${fmtShortSec(it.kind === 'dye' ? (Number(d.pose) || 35) * 60 : d.timerSec)}`);
+}, true);
 
 // ---------------- Service worker ----------------
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});

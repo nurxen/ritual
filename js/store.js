@@ -86,7 +86,7 @@ export async function applyTemplate(catKeys, careKeys) {
     profile_id: pid, kind: 'care',
     data: c.group === 'ipl'
       ? { key: c.key, group: 'ipl', name: c.name, icon: c.icon, head: c.head, phase: 'inicial', sessions: 0, interval: 14, last: null }
-      : { key: c.key, group: c.group, name: c.name, icon: c.icon, interval: c.interval, last: null, tip: c.tip || '' },
+      : { key: c.key, group: c.group, name: c.name, icon: c.icon, interval: c.interval, last: null, tip: c.tip || '', ...(c.timerSec ? { timerSec: c.timerSec, timerKind: c.timerKind, timerAfter: c.timerAfter } : {}) },
   }));
   if (careRows.length) S.items.push(...await db.insert('items', careRows));
   await updateProfile({ onboarded: true });
@@ -471,9 +471,13 @@ export async function applyPlan(plan) {
     const { match, ...fields } = pp;
     if (ex) {
       const d = ex.data;
-      await saveItem(ex, { ...fields, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
+      // Respeta el estado que hayas cambiado tú (p. ej. "Comprado"): solo se actualiza si sigue como lo dejó el plan
+      const userChanged = d.planStatus !== undefined ? d.status !== d.planStatus
+        : (fields.status === 'wish' && d.status && d.status !== 'wish') || ['drop'].includes(d.status) && fields.status !== 'drop';
+      const status = userChanged ? d.status : fields.status;
+      await saveItem(ex, { ...fields, status, planStatus: fields.status, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
     } else {
-      await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, pao: 'pao' in fields ? fields.pao : 12 });
+      await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, planStatus: fields.status, pao: 'pao' in fields ? fields.pao : 12 });
     }
   }
   if (pv.cats.length || pv.care.length) await applyTemplate(pv.cats, pv.care);
