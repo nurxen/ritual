@@ -71,7 +71,7 @@ function hub(view) {
     perfumes: `${itemsOf('perfume').length} perfumes`,
     looks: `${itemsOf('combo').filter(c => c.data.type === 'look').length} looks`,
     viaje: 'Calcula cantidades',
-    guia: `${GUIDE.length + itemsOf('guide').length} temas`,
+    guia: (() => { const mine = itemsOf('guide').map(i => i.data); const hid = new Set(mine.flatMap(x => [].concat(x.replaces || []))); return `${mine.length + GUIDE.filter(g => !hid.has(g.id)).length} temas`; })(),
     labios: lipStatusText(),
   };
   const shop = shoppingList();
@@ -138,11 +138,7 @@ function rutinas(root) {
     ${rDay !== null && rDay !== new Date().getDay() ? `<p class="small muted">Viendo la rutina del ${DOW_LONG[dow]}.</p>` : ''}
     ${block('am', '☀️ Mañana', 'am_routine')}
     ${block('pm', '🌙 Noche', 'pm_routine')}
-    ${rot.length ? `<section class="card"><h3>Tus noches de la semana</h3>
-      <div style="display:grid;grid-template-columns:auto repeat(7,1fr);gap:6px;align-items:center;font-size:13px">
-        <span></span>${order.map(n => `<b class="center" style="${n === new Date().getDay() ? 'color:var(--c-ink)' : ''}">${DOW_SHORT[n]}</b>`).join('')}
-        ${rot.map(p => `<span style="font-weight:600">${esc(p.data.brand || p.data.name)}</span>${order.map(n => `<span class="center" style="height:22px;border-radius:7px;background:${p.data.pmDays.includes(n) ? 'var(--c)' : 'var(--soft)'}"></span>`).join('')}`).join('')}
-      </div></section>` : ''}
+    ${weekGrid(rot, order)}
     <section class="card"><h3>🏋️ Protocolo post-Box</h3><ol class="steps">${POST_GYM_PROTOCOL.map(x => `<li>${esc(x)}</li>`).join('')}</ol></section>
     <p class="muted small center">Para cambiar el orden, los días o la rutina de un producto, edítalo en <a href="#/cuidado/inventario">Inventario</a>.</p>`;
   $('#loadSample', root)?.addEventListener('click', loadSamples);
@@ -155,6 +151,36 @@ function rutinas(root) {
   $$('[data-done]', root).forEach(b => b.onclick = async () => {
     const id = b.dataset.done; await setVal(id, !getVal(id, today()), today()); rerender();
   });
+}
+
+// "Tu semana": productos que van por noches + cuidados semanales colocados según cuándo los hiciste
+function weekGrid(rot, order) {
+  // Próximos 7 días empezando hoy (así siempre ves lo que viene)
+  const t = today();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(t, i));
+  const dowOf = d => new Date(d + 'T12:00').getDay();
+  const weekly = itemsOf('care').filter(i => i.data.group !== 'ipl' && i.data.last && Number(i.data.interval) <= 14 && ['piel', 'pelo', 'cuerpo'].includes(i.data.group));
+  const careDays = it => {
+    const st = careStatus(it); const out = new Set();
+    let d = st.next < t ? t : st.next;
+    while (d <= days[6]) { if (d >= days[0]) out.add(d); d = addDays(d, Number(it.data.interval) || 7); }
+    return out;
+  };
+  const coming = products().filter(p => pStatus(p) === 'wish' && (p.data.slot === 'pm' || p.data.slot === 'both') && !(p.data.pmDays || []).length);
+  if (!rot.length && !weekly.length) return '';
+  const cell = (on, col, isToday) => `<span style="height:22px;border-radius:7px;background:${on ? col : 'var(--soft)'};${isToday ? 'outline:2px solid var(--ink);outline-offset:-2px' : ''}"></span>`;
+  const head = `<span></span>${days.map(d => `<b class="center" style="${d === t ? 'color:var(--c-ink)' : ''}">${d === t ? 'Hoy' : DOW_SHORT[dowOf(d)]}</b>`).join('')}`;
+  const short = s => { s = s.replace(/ \(.*\)/, ''); return s.length > 22 ? s.slice(0, 21) + '…' : s; };
+  const label = (txt, sub) => `<span class="wk-label">${txt}${sub ? `<small>${sub}</small>` : ''}</span>`;
+  return `<section class="card"><h3>Tus próximos 7 días</h3>
+    <div class="wk-grid">${head}
+      ${rot.length ? `<span class="wk-sec">Noches</span>` : ''}
+      ${rot.map(p => label(esc(short(p.data.brand || p.data.name)), pStatus(p) === 'wish' ? '🛒 cuando llegue' : '') + days.map(d => cell(p.data.pmDays.includes(dowOf(d)), 'var(--c)', d === t)).join('')).join('')}
+      ${weekly.length ? `<span class="wk-sec">Cuidados</span>` : ''}
+      ${weekly.map(it => { const ds = careDays(it); return label(`${esc(it.data.icon || '')} ${esc(short(it.data.name))}`) + days.map(d => cell(ds.has(d), CARE_GROUP_COLORS[it.data.group] || 'var(--c)', d === t)).join(''); }).join('')}
+    </div>
+    ${coming.length ? `<p class="small muted mt-s">Se incorporan cuando lleguen: ${coming.map(p => `<b>${esc(p.data.brand || p.data.name)}</b> ${p.data.onlyIfMakeup ? '(noches que te maquilles)' : '(cada noche)'}`).join(', ')}.</p>` : ''}
+    <p class="small muted">Los cuidados se recolocan solos según el día que los marques como hechos.</p></section>`;
 }
 
 // ------------------------------------------------------------------ LABIOS
@@ -425,12 +451,14 @@ function inventario(root) {
     const total = shop.wish.reduce((a, p) => a + (Number(p.data.price) || 0), 0);
     body.innerHTML = `
       ${Object.keys(byStore).length ? Object.entries(byStore).map(([st, ps]) => `<div class="section-head"><h2>🛒 ${esc(st)}</h2><span class="small muted">${ps.length}</span></div>
-        <div class="card list">${ps.map(p => `<div class="li"><div class="grow"><b>${esc(p.data.name)}</b> <span class="small muted">${esc(p.data.brand || '')}</span>
-          ${p.data.note ? `<details class="small muted"><summary>Por qué</summary>${esc(p.data.note)}</details>` : ''}</div>
-          ${p.data.price ? `<span class="small" style="font-weight:700">${eur(p.data.price)}</span>` : ''}
+        <div class="card list">${ps.map(p => `<div class="li"><button class="grow" data-pe="${p.id}" style="text-align:left"><b>${esc(p.data.name)}</b> <span class="small muted">${esc(p.data.brand || '')}</span>
+          ${p.data.note ? `<br><span class="small muted">${esc(p.data.note.length > 80 ? p.data.note.slice(0, 80) + '…' : p.data.note)}</span>` : ''}</button>
+          ${p.data.price ? `<span class="small" style="font-weight:700">${p.data.priceEst ? '≈ ' : ''}${eur(p.data.price)}</span>` : ''}
+          <button class="icon-btn" data-pe="${p.id}" aria-label="Editar">${icon('edit')}</button>
           <button class="btn tiny" data-bought="${p.id}">Comprado</button></div>`).join('')}</div>`).join('')
         : '<div class="card empty"><p>No tienes nada pendiente de comprar.</p></div>'}
-      ${total ? `<p class="small muted">Total con precio conocido: <b>${eur(total)}</b></p>` : ''}
+      ${total ? `<p class="small muted">Total aproximado: <b>${eur(total)}</b>. Toca un producto para editarlo o borrarlo.</p>` : ''}
+      <button class="btn ghost block mt-s" id="addWish">${icon('plus')} Añadir a la lista</button>
       ${shop.refill.length ? `<div class="section-head"><h2>Reponer</h2><span class="small muted">${shop.refill.length}</span></div>
         <p class="small muted" style="margin-top:-6px">Cuando lo compres, pulsa Comprado: sale de aquí y el bote nuevo entra en tu inventario.</p>
         <div class="card list">${shop.refill.map(x => `<div class="li"><span>${STATUS[pStatus(x.p)].e}</span><div class="grow"><b>${esc(x.what)}</b><br><span class="small muted">${x.why}: ${esc(x.p.data.name)}</span></div>
@@ -466,6 +494,8 @@ function inventario(root) {
         });
       });
     });
+    $('#addWish', body)?.addEventListener('click', () => productEdit(null, { status: 'wish' }));
+    $$('[data-pe]', body).forEach(b => b.onclick = () => productEdit(S.items.find(i => i.id === b.dataset.pe)));
     $$('[data-bought]', body).forEach(b => b.onclick = async () => {
       const p = S.items.find(i => i.id === b.dataset.bought);
       await saveItem(p, { status: p.data.onBuy || 'keep', boughtAt: today() });
@@ -479,10 +509,18 @@ function inventario(root) {
 
   if (invTab === 'gasto') {
     const month = today().slice(0, 7);
-    const spentMonth = list.filter(p => pStatus(p) !== 'wish' && (p.data.boughtAt || p.data.openedAt || '').startsWith(month)).reduce((a, p) => a + (Number(p.data.price) || 0), 0);
+    const bought = p => pStatus(p) !== 'wish' && ((p.data.boughtAt || '').startsWith(month) || (!p.data.priceEst && !p.data.boughtAt && (p.data.openedAt || '').startsWith(month)));
+    const spentMonth = list.filter(bought).reduce((a, p) => a + (Number(p.data.price) || 0), 0);
     const done = list.filter(p => p.data.finished);
-    body.innerHTML = `<section class="card"><p>Este mes: <b>${eur(spentMonth)}</b></p>
-      ${done.filter(p => p.data.price && p.data.openedAt && p.data.finishedAt).map(p => {
+    const owned = list.filter(p => !p.data.finished && !['wish', 'drop'].includes(pStatus(p)));
+    const realDone = done.filter(p => p.data.price && p.data.openedAt && p.data.finishedAt && !['drop', 'pause'].includes(pStatus(p)) && diffDays(p.data.finishedAt, p.data.openedAt) < 730);
+    const val = ps => ps.reduce((a, p) => a + (Number(p.data.price) || 0), 0);
+    const byS = k => owned.filter(p => pStatus(p) === k);
+    body.innerHTML = `<section class="card"><h3>Lo que tienes ahora</h3>
+      <div class="kpis money"><div><b>≈${Math.round(val(owned))} €</b><span>en total</span></div><div><b>≈${Math.round(val(byS('useup')))} €</b><span>🟡 por gastar</span></div><div><b>≈${Math.round(val(byS('pause')))} €</b><span>⏸️ en pausa</span></div></div>
+      <p class="small muted">Valor aproximado de tus ${owned.length} productos (los precios con ≈ son estimados; puedes corregirlos en cada producto). Gastar antes de comprar es ahorro directo.</p></section>
+      <section class="card"><p>Comprado este mes: <b>${eur(spentMonth)}</b></p>
+      ${realDone.map(p => {
         const days = Math.max(1, diffDays(p.data.finishedAt, p.data.openedAt));
         return `<p class="small">${esc(p.data.name)}: duró ${days} días · <b>${eur(p.data.price / days * 30)}/mes</b></p>`;
       }).join('') || '<p class="small muted">Cuando marques un producto como terminado (con precio y fecha de apertura), verás cuánto te cuesta al mes y podrás comparar marcas.</p>'}</section>
@@ -497,7 +535,7 @@ function inventario(root) {
     const e = productExpiry(p); const st = STATUS[pStatus(p)];
     const exp = !e ? '' : e.days < 0 ? '<span class="pill warn">Caducado</span>' : e.days <= 30 ? `<span class="pill accent">${e.days} d</span>` : '';
     return `<button class="li prod" data-p="${p.id}"><span class="stat" title="${st.d}" style="--c:${st.c}">${st.e}</span><div class="grow"><div>${esc(p.data.name)}</div>
-      <div class="small muted">${[p.data.brand, p.data.type].filter(Boolean).map(esc).join(', ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}${p.data.timerSec ? ` · ⏱ ${fmtShortSec(p.data.timerSec)}` : ''}</div>
+      <div class="small muted">${[p.data.brand, p.data.type].filter(Boolean).map(esc).join(', ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}${p.data.timerSec ? ` · ⏱ ${fmtShortSec(p.data.timerSec)}` : ''}${p.data.price ? ` · ${p.data.priceEst ? '≈' : ''}${eur(p.data.price)}` : ''}</div>
       ${p.data.note ? `<div class="small" style="color:var(--ink-2);margin-top:2px">${esc(p.data.note.length > 90 ? p.data.note.slice(0, 90) + '…' : p.data.note)}</div>` : ''}</div>${exp}</button>`;
   };
   const norm = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -605,7 +643,7 @@ function productEdit(p, prefill = {}) {
       <h3 class="mt">Caducidad y compra</h3>
       <div class="grid3"><label class="field"><span>Abierto el</span><input type="date" name="openedAt" value="${d.openedAt || ''}"></label>
       <label class="field"><span>PAO (meses)</span><input type="number" name="pao" value="${d.pao ?? ''}"></label>
-      <label class="field"><span>Precio €</span><input type="number" step="0.01" name="price" value="${d.price ?? ''}"></label></div>
+      <label class="field"><span>Precio €${d.priceEst ? ' (≈ estimado)' : ''}</span><input type="number" step="0.01" name="price" value="${d.price ?? ''}"></label></div>
       <div class="grid2"><label class="field"><span>Tienda</span><input name="store" list="stores" value="${esc(d.store || '')}"></label>
       <label class="field"><span>Enlace</span><input name="url" type="url" value="${esc(d.url || '')}" placeholder="https://…"></label></div>
       <datalist id="stores"><option value="Primor"><option value="Mercadona"><option value="Druni"><option value="Farmacia"><option value="Online"></datalist>
@@ -624,7 +662,9 @@ function productEdit(p, prefill = {}) {
       const data = { ...f, ...tm, unopened: f.openedAt ? false : !!d.unopened, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
       if (f.finished && !d.finished) data.finishedAt = today();
       if (!f.finished) data.finishedAt = null;
-      if (f.price && !d.boughtAt && data.status !== 'wish') data.boughtAt = f.openedAt || today();
+      if (Number(f.price) !== Number(d.price)) data.priceEst = false;
+      else data.priceEst = !!d.priceEst;
+      if (f.price && !d.boughtAt && !d.priceEst && data.status !== 'wish') data.boughtAt = f.openedAt || today();
       p ? await saveItem(p, data) : await addItem('product', data);
       closeSheet(); toast('Guardado'); rerender();
     };
@@ -791,7 +831,7 @@ function viaje(root) {
 
 // ------------------------------------------------------------------ GUÍA
 function guia(root, topic) {
-  const mine = itemsOf('guide').map(i => i.data);
+  const mine = itemsOf('guide').map(i => i.data).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
   const g = mine.find(x => x.gid === topic) || GUIDE.find(x => x.id === topic);
   if (g) {
     root.innerHTML = `
@@ -802,7 +842,7 @@ function guia(root, topic) {
       ${g.gid ? '<p class="small muted mt">Parte de tu plan personal.</p>' : ''}`;
     return;
   }
-  const hidden = new Set(mine.map(x => x.replaces).filter(Boolean));
+  const hidden = new Set(mine.flatMap(x => [].concat(x.replaces || [])));
   const tile = x => `<a class="guide-tile" href="#/cuidado/guia/${x.gid || x.id}" style="--c:${x.color}">
       <span class="g-emoji">${x.icon}</span><b>${esc(x.title)}</b><span>${esc(x.lead)}</span></a>`;
   root.innerHTML = `

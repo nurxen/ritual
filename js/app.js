@@ -191,7 +191,8 @@ function renderShell() {
     <nav class="tabbar">${TABS.map(([k, l, i]) => `<a href="#/${k}" data-tab="${k}">${icon(i)}<span>${l}</span></a>`).join('')}</nav>`;
   if (!location.hash || location.hash === '#/') location.hash = '#/hoy'; else rerender();
 }
-window.addEventListener('hashchange', () => { if (S.profile && $('#view')) { rerender(); window.scrollTo(0, 0); } });
+window.addEventListener('hashchange', () => { closeSheet(); if (S.profile && $('#view')) { rerender(); window.scrollTo(0, 0); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 export function rerender() {
   const view = $('#view'); if (!view) return;

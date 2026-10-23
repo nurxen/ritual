@@ -127,7 +127,7 @@ function datos(root) {
   const prev = (() => { const d = parseDay(today()); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
   const spend = catByKey('spend') || cats.find(c => c.type === 'money');
   const sumSpend = m => spend ? [...S.entries.values()].filter(e => e.category_id === spend.id && e.day.startsWith(m)).reduce((a, e) => a + (Number(e.value?.amount) || 0), 0) : 0;
-  const careSpend = m => products().filter(p => (p.data.boughtAt || p.data.openedAt || '').startsWith(m)).reduce((a, p) => a + (Number(p.data.price) || 0), 0)
+  const careSpend = m => products().filter(p => p.data.status !== 'wish' && ((p.data.boughtAt || '').startsWith(m) || (!p.data.priceEst && !p.data.boughtAt && (p.data.openedAt || '').startsWith(m)))).reduce((a, p) => a + (Number(p.data.price) || 0), 0)
     + itemsOf('dye').filter(d => d.data.day.startsWith(m)).reduce((a, d) => a + (Number(d.data.cost) || 0), 0);
   const corr = correlations();
   root.innerHTML = `

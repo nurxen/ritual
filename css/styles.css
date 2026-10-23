@@ -494,3 +494,11 @@ details.grp > .card { border-radius: 0 0 var(--r) var(--r); margin-bottom: 0; }
 body.has-timers .page { padding-bottom: calc(env(safe-area-inset-bottom) + 190px); }
 body.has-timers .toast { bottom: calc(env(safe-area-inset-bottom) + 170px); }
 .timer-btn { background: color-mix(in srgb, #A7BCEB 35%, var(--surface)); }
+
+/* v10: Tu semana */
+.wk-grid { display: grid; grid-template-columns: minmax(96px, 2.4fr) repeat(7, minmax(0, 1fr)); gap: 5px; align-items: center; font-size: 13px; }
+.wk-label { font-weight: 600; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; }
+.wk-label small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+.wk-sec { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--muted); margin-top: 6px; }
+.kpis.money b { font-size: 24px; white-space: nowrap; }
+.wk-grid b.center { font-size: 11px; }

@@ -475,9 +475,13 @@ export async function applyPlan(plan) {
       const userChanged = d.planStatus !== undefined ? d.status !== d.planStatus
         : (fields.status === 'wish' && d.status && d.status !== 'wish') || ['drop'].includes(d.status) && fields.status !== 'drop';
       const status = userChanged ? d.status : fields.status;
-      await saveItem(ex, { ...fields, status, planStatus: fields.status, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
+      // Tampoco pisa el nombre, la marca o el tipo si los has cambiado tú
+      const prevApplied = planVersionApplied(plan) > 0;
+      const keepName = !fields.forceName && (d.planName !== undefined ? d.name !== d.planName : prevApplied);
+      const ident = keepName ? { name: d.name, brand: d.brand, type: d.type } : {};
+      await saveItem(ex, { ...fields, ...ident, planName: fields.name, status, planStatus: fields.status, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
     } else {
-      await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, planStatus: fields.status, pao: 'pao' in fields ? fields.pao : 12 });
+      await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, planName: fields.name, planStatus: fields.status, pao: 'pao' in fields ? fields.pao : 12 });
     }
   }
   if (pv.cats.length || pv.care.length) await applyTemplate(pv.cats, pv.care);
@@ -486,16 +490,26 @@ export async function applyPlan(plan) {
     if (it) await saveItem(it, patch);
   }
   for (const t of pv.tasks) await addItem('task', { title: t.title, prio: t.prio, est: t.est, due: t.dueToday ? today() : null, done: false });
-  for (const g of plan.guide) {
+  for (const gid of plan.guideRemove || []) {
+    for (const it of itemsOf('guide').filter(i => i.data.gid === gid)) await deleteItem(it);
+  }
+  for (const [order, g] of plan.guide.entries()) {
     const ex = itemsOf('guide').find(i => i.data.gid === g.gid);
-    ex ? await saveItem(ex, g) : await addItem('guide', g);
+    const data = { replaces: null, src: [], ...g, order };
+    if (ex) { ex.data = {}; await saveItem(ex, data); } else await addItem('guide', data);
+  }
+  // Precios aproximados: solo donde no hay precio (o donde el anterior también era aproximado)
+  for (const p of products()) {
+    if (p.data.price != null && !p.data.priceEst) continue;
+    const r = (plan.prices || []).find(x => new RegExp(x.match, 'i').test(`${p.data.name} ${p.data.brand || ''}`));
+    if (r && p.data.price !== r.price) await saveItem(p, { price: r.price, priceEst: true });
   }
   const s = settings();
   const extra = {};
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
   await saveSettings({
     ...extra,
-    noBuy: [...new Set([...(s.noBuy || []), ...(plan.noBuy || [])])].filter(x => !(plan.noBuyRemove || []).includes(x)),
+    noBuy: [...new Set([...(plan.noBuy || []), ...(s.noBuy || [])])].filter(x => !(plan.noBuyRemove || []).includes(x)),
     routineNotes: { ...(s.routineNotes || {}), ...(plan.routineNotes || {}) },
     plans: [...new Set([...(s.plans || []), plan.id])],
     planVersions: { ...(s.planVersions || {}), [plan.id]: plan.version || 1 },
