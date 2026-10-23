@@ -339,18 +339,51 @@ export function checkRoutine(slot) {
 }
 
 // Lista de la compra: lo que quieres comprar + lo que repones cuando se acaba
+// ¿Ya tengo (o ya voy a comprar) el producto que sustituye a este?
+const words = t => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(w => w.length > 3);
+export function findOwned(what, except) {
+  const ws = words(what); if (!ws.length) return null;
+  return products().find(p => p.id !== except?.id && !p.data.finished && pStatus(p) !== 'drop' && (() => {
+    const hay = words(`${p.data.name} ${p.data.brand || ''}`);
+    const hit = ws.filter(w => hay.includes(w)).length;
+    return hit >= Math.min(2, ws.length);
+  })()) || null;
+}
+// Lista de la compra: lo que quieres comprar + lo que repones cuando se acaba
 export function shoppingList() {
   const ps = products();
   const wish = ps.filter(p => pStatus(p) === 'wish');
   const refill = [];
   for (const p of ps) {
     const s = pStatus(p); const d = p.data;
+    if (d.refilled || (d.snoozeUntil && d.snoozeUntil > today())) continue;
     const ending = d.low || d.finished || (productExpiry(p)?.days ?? 999) <= 30;
     if (!ending || s === 'wish' || s === 'drop' || s === 'pause') continue;
-    if (s === 'keep') refill.push({ p, what: d.replaceWith || `${d.brand ? d.brand + ' ' : ''}${d.name}` });
-    else if (d.replaceWith) refill.push({ p, what: d.replaceWith });
+    let what = null;
+    if (d.replaceWith) what = d.replaceWith;
+    else if (s === 'keep') what = `${d.brand ? d.brand + ' ' : ''}${d.name}`;
+    if (!what) continue;
+    // si ya tienes el sustituto (o está en la lista de compra), no hace falta reponer
+    if (d.replaceWith && findOwned(d.replaceWith, p)) continue;
+    refill.push({ p, what, why: d.finished ? 'Se acabó' : d.low ? 'Casi vacío' : 'Caduca pronto' });
   }
   return { wish, refill };
+}
+// "Comprado" en Reponer: añade el bote nuevo (sin abrir) y saca el viejo de la lista
+export async function refillBought(p, oldFinished) {
+  const d = p.data;
+  const same = !d.replaceWith || d.replaceWith === `${d.brand ? d.brand + ' ' : ''}${d.name}`;
+  const fresh = same
+    ? { ...d, openedAt: null, low: false, finished: false, finishedAt: null, refilled: false, snoozeUntil: null, boughtAt: today() }
+    : { name: d.replaceWith, brand: '', type: d.type, area: d.area, sub: d.sub, status: 'keep', slot: d.slot, step: d.step, stepPm: d.stepPm,
+        amDays: d.amDays, pmDays: d.pmDays, tags: [], leaveOn: d.leaveOn, pao: 12, openedAt: null, low: false, finished: false, boughtAt: today(),
+        note: `Sustituye a ${d.name}.` };
+  await addItem('product', fresh);
+  await saveItem(p, { refilled: true, ...(oldFinished && !d.finished ? { finished: true, finishedAt: today() } : {}) });
+}
+export async function refillSkip(p, mode) {
+  if (mode === 'enough') await saveItem(p, { low: false, snoozeUntil: addDays(today(), 14) });
+  else if (mode === 'never') await saveItem(p, { replaceWith: '', status: pStatus(p) === 'keep' ? 'useup' : pStatus(p), refilled: true });
 }
 
 // ---------------- Labios ----------------

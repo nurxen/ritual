@@ -26,7 +26,7 @@ export function openMenu() {
     </div>
     <h3 class="mt">Apariencia</h3>
     <div class="seg mt-s">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button class="${theme === k ? 'on' : ''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
-    <p class="small muted center">Ritual v5 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
+    <p class="small muted center">Ritual v6 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
     $$('[data-go]', body).forEach(a => a.addEventListener('click', () => closeSheet()));
     $$('[data-theme-set]', body).forEach(b => b.onclick = () => {
       localStorage.setItem('ritual_theme', b.dataset.themeSet); applyTheme();

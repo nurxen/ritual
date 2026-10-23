@@ -2,7 +2,7 @@
 import {
   S, itemsOf, addItem, saveItem, deleteItem, careStatus, markCareDone, iplBlock, lastWorkout, products,
   productExpiry, routineProducts, checkRoutine, tagsFromIngredients, settings, saveSettings, catByKey, getVal, setVal,
-  pStatus, pArea, shoppingList, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
+  pStatus, pArea, shoppingList, refillBought, refillSkip, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
 } from './store.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
 import {
@@ -375,7 +375,7 @@ function inventario(root) {
   const counts = Object.fromEntries(Object.keys(STATUS).map(k => [k, list.filter(p => pStatus(p) === k && !p.data.finished).length]));
   const shop = shoppingList();
   const noBuy = settings().noBuy || [];
-  const check = list.filter(p => !p.data.finished && /m[aá]scara|gloss|lip oil|aceite labial|larga duraci|tinte/i.test(`${p.data.type} ${p.data.name}`) && (!p.data.openedAt || (productExpiry(p)?.days ?? 1) < 0));
+  const check = list.filter(p => !p.data.finished && !p.data.unopened && pStatus(p) !== 'wish' && !/desmaquill|remover/i.test(`${p.data.type} ${p.data.name}`) && /m[aá]scara|gloss|lip oil|aceite labial|larga duraci|tinte|labial l[ií]quido/i.test(`${p.data.type} ${p.data.name}`) && (!p.data.openedAt || (productExpiry(p)?.days ?? 1) < 0));
   root.innerHTML = `
     <div class="seg">${[['productos', 'Mis productos'], ['compra', `Compra${shop.wish.length + shop.refill.length ? ` (${shop.wish.length + shop.refill.length})` : ''}`], ['gasto', 'Gasto']].map(([k, l]) => `<button class="${invTab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
     <div id="invBody"></div>`;
@@ -394,9 +394,34 @@ function inventario(root) {
           <button class="btn tiny" data-bought="${p.id}">Comprado</button></div>`).join('')}</div>`).join('')
         : '<div class="card empty"><p>No tienes nada pendiente de comprar.</p></div>'}
       ${total ? `<p class="small muted">Total con precio conocido: <b>${eur(total)}</b></p>` : ''}
-      ${shop.refill.length ? `<div class="section-head"><h2>Reponer</h2></div><div class="card list">${shop.refill.map(x => `<div class="li"><span>${STATUS[pStatus(x.p)].e}</span><div class="grow"><b>${esc(x.what)}</b><br><span class="small muted">${x.p.data.finished ? 'Se acabó' : x.p.data.low ? 'Casi vacío' : 'Caduca pronto'}: ${esc(x.p.data.name)}</span></div>${x.p.data.url ? `<a class="small" href="${esc(x.p.data.url)}" target="_blank" rel="noopener">enlace</a>` : ''}</div>`).join('')}</div>` : ''}
+      ${shop.refill.length ? `<div class="section-head"><h2>Reponer</h2><span class="small muted">${shop.refill.length}</span></div>
+        <p class="small muted" style="margin-top:-6px">Cuando lo compres, pulsa Comprado: sale de aquí y el bote nuevo entra en tu inventario.</p>
+        <div class="card list">${shop.refill.map(x => `<div class="li"><span>${STATUS[pStatus(x.p)].e}</span><div class="grow"><b>${esc(x.what)}</b><br><span class="small muted">${x.why}: ${esc(x.p.data.name)}</span></div>
+          <button class="btn tiny" data-refill="${x.p.id}">Comprado</button><button class="icon-btn" data-skip="${x.p.id}" aria-label="Quitar de Reponer">${icon('x')}</button></div>`).join('')}</div>` : ''}
       ${noBuy.length ? `<div class="section-head"><h2>No comprar</h2></div><section class="card" style="--c:#EFA3AE"><ul class="tips">${noBuy.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
         <button class="btn tiny ghost" id="editNoBuy">Editar lista</button></section>` : '<button class="btn tiny ghost" id="editNoBuy">Añadir lista de “no comprar”</button>'}`;
+    $$('[data-refill]', body).forEach(b => b.onclick = () => {
+      const p = S.items.find(i => i.id === b.dataset.refill);
+      if (p.data.finished) { refillBought(p, true).then(() => { toast('Bote nuevo en tu inventario'); rerender(); }); return; }
+      sheet('¿Y el que tienes ahora?', `<div class="stack">
+        <button class="btn primary block" data-old="keep">Lo sigo usando hasta acabarlo</button>
+        <button class="btn ghost block" data-old="done">Ya está acabado o lo he tirado</button>
+        <p class="small muted">El nuevo queda en tu inventario sin abrir. Pon la fecha cuando lo abras.</p></div>`, sb => {
+        $$('[data-old]', sb).forEach(x => x.onclick = async () => { await refillBought(p, x.dataset.old === 'done'); closeSheet(); toast('Bote nuevo en tu inventario'); rerender(); });
+      });
+    });
+    $$('[data-skip]', body).forEach(b => b.onclick = () => {
+      const p = S.items.find(i => i.id === b.dataset.skip);
+      sheet('Quitar de Reponer', `<div class="stack">
+        <button class="btn ghost block" data-mode="enough">Aún me queda: recuérdamelo en 2 semanas</button>
+        <button class="btn ghost block" data-mode="never">No lo voy a reponer</button>
+        <button class="btn ghost block" data-mode="edit">Editar el producto (fecha, estado…)</button></div>`, sb => {
+        $$('[data-mode]', sb).forEach(x => x.onclick = async () => {
+          if (x.dataset.mode === 'edit') return productEdit(p);
+          await refillSkip(p, x.dataset.mode); closeSheet(); toast('Quitado de Reponer'); rerender();
+        });
+      });
+    });
     $$('[data-bought]', body).forEach(b => b.onclick = async () => {
       const p = S.items.find(i => i.id === b.dataset.bought);
       await saveItem(p, { status: p.data.onBuy || 'keep', boughtAt: today() });
@@ -444,8 +469,11 @@ function inventario(root) {
   }
   body.innerHTML = `
     <div class="row gap"><button class="btn primary grow" id="addP">${icon('plus')} Producto</button><button class="btn ghost" id="scanP">${icon('scan')} Escanear</button></div>
-    ${check.length ? `<section class="card flat mt" style="--c:#EFA3AE"><h3>🧹 Revisa la higiene</h3><p class="small">Máscaras: fuera a los 3–6 meses de abrirlas. Glosses y labiales con aplicador: fuera si llevan más de un año. Estos no tienen fecha de apertura o ya han caducado:</p>
-      <p class="small"><b>${check.map(p => esc(p.data.name)).join(', ')}</b></p></section>` : ''}
+    ${check.length ? `<section class="card flat mt" style="--c:#EFA3AE"><h3>🧹 Revisa la higiene (${check.length})</h3><p class="small">Máscaras: fuera a los 3–6 meses de abrirlas. Glosses y labiales líquidos: fuera si llevan más de un año. Estos no tienen fecha de apertura o ya han caducado.</p>
+      <button class="btn small color" id="hyg" style="--c:#EFA3AE">Revisarlos uno a uno</button></section>` : ''}
+    ${(() => { const all = list.filter(p => pStatus(p) === 'useup'); const gone = all.filter(p => p.data.finished).length;
+      return all.length ? `<section class="card mt"><div class="row between"><h3>🟡 Gastando lo que tienes</h3><b>${gone}/${all.length}</b></div><div class="bar big" style="--c:#F2CF7E"><i style="width:${gone / all.length * 100}%"></i></div>
+        <p class="small muted mt-s">Marca “Terminado” cada vez que acabes uno. Cuando la barra llegue al final, tu neceser será solo de los buenos.</p></section>` : ''; })()}
     <div class="chips rail mt">${[['all', `Todos ${list.filter(p => !p.data.finished && pStatus(p) !== 'wish').length}`], ...Object.entries(STATUS).filter(([k]) => k !== 'wish' && counts[k]).map(([k, v]) => [k, `${v.e} ${v.l} ${counts[k]}`])]
       .map(([k, l]) => `<button class="chip ${invStatus === k ? 'on' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
     <div class="chips rail mt-s">${['all', ...areas].map(a => `<button class="chip small ${invArea === a ? 'on' : ''}" data-ar="${esc(a)}">${a === 'all' ? 'Todas las zonas' : esc(a)}</button>`).join('')}</div>
@@ -453,12 +481,37 @@ function inventario(root) {
     ${groups.map(([t, ps]) => `<div class="section-head"><h2>${esc(t)}</h2><span class="small muted">${ps.length}</span></div><div class="card list">${ps.map(row).join('')}</div>`).join('')
       || '<div class="card empty mt"><p>No hay productos con este filtro.</p></div>'}
     ${!list.length ? `<div class="card empty mt"><button class="btn ghost" id="loadSample">Cargar productos de ejemplo</button></div>` : ''}`;
+  $('#hyg', body)?.addEventListener('click', () => hygieneSheet(check));
   $('#addP', body).onclick = () => productEdit(null);
   $('#scanP', body).onclick = () => scanBarcode();
   $('#loadSample', body)?.addEventListener('click', loadSamples);
   $$('[data-st]', body).forEach(b => b.onclick = () => { invStatus = b.dataset.st; rerender(); });
   $$('[data-ar]', body).forEach(b => b.onclick = () => { invArea = b.dataset.ar; rerender(); });
   $$('[data-p]', body).forEach(b => b.onclick = () => productEdit(S.items.find(i => i.id === b.dataset.p)));
+}
+
+function hygieneSheet(list) {
+  sheet('Revisa la higiene', `<p class="small muted">Pon cuándo lo abriste (aproximado vale). Si no lo sabes y tiene pinta de llevar más de un año, o huele a cera o a rancio, tíralo.</p>
+    <div class="list">${list.map(p => `<div class="li" style="flex-wrap:wrap" data-h="${p.id}"><div class="grow" style="min-width:60%"><b>${esc(p.data.name)}</b> <span class="small muted">${esc(p.data.brand || '')}</span></div>
+      <input type="month" class="input" style="width:150px" data-month value="${p.data.openedAt ? p.data.openedAt.slice(0, 7) : ''}" aria-label="Mes de apertura">
+      <div class="chips" style="width:100%"><button class="chip small" data-act="new">Sin abrir</button><button class="chip small" data-act="bin">🗑️ Lo tiro</button></div></div>`).join('')}</div>
+    <button class="btn primary block mt" id="hygOk">Guardar</button>`, body => {
+    const acts = {};
+    $$('[data-act]', body).forEach(b => b.onclick = () => {
+      const id = b.closest('[data-h]').dataset.h; const a = b.dataset.act;
+      acts[id] = acts[id] === a ? null : a;
+      $$('[data-act]', b.closest('[data-h]')).forEach(x => x.classList.toggle('on', acts[id] === x.dataset.act));
+    });
+    $('#hygOk', body).onclick = async () => {
+      for (const row of $$('[data-h]', body)) {
+        const p = S.items.find(i => i.id === row.dataset.h); const a = acts[p.id]; const m = $('[data-month]', row).value;
+        if (a === 'bin') await saveItem(p, { finished: true, finishedAt: today(), status: 'drop', refilled: true });
+        else if (a === 'new') await saveItem(p, { unopened: true });
+        else if (m) await saveItem(p, { openedAt: `${m}-01`, unopened: false });
+      }
+      closeSheet(); toast('Revisado'); rerender();
+    };
+  });
 }
 
 function productEdit(p, prefill = {}) {
@@ -500,7 +553,7 @@ function productEdit(p, prefill = {}) {
       const f = formData(body); if (!f.name) return toast('Ponle un nombre');
       const radio = $('[name=status]:checked', body);
       const days = k => (f[k] || []).map(Number);
-      const data = { ...f, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
+      const data = { ...f, unopened: f.openedAt ? false : !!d.unopened, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
       if (f.finished && !d.finished) data.finishedAt = today();
       if (!f.finished) data.finishedAt = null;
       if (f.price && !d.boughtAt) data.boughtAt = f.openedAt || today();
