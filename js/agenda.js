@@ -67,7 +67,7 @@ function calendario(root) {
     <section class="card list">${soon.length ? soon.map(ev => {
       const d = parseDay(ev.day);
       return `<div class="event" style="--c:${evColor(ev)}"><div class="ev-date"><b>${d.getDate()}</b><span>${ev.day === today() ? 'hoy' : DOW[d.getDay()]}</span></div>
-        <span class="ev-bar"></span><div class="grow"><div>${esc(ev.icon)} ${esc(ev.title)}</div>${ev.late ? '<div class="small warn-text">Atrasado</div>' : ''}</div>
+        <span class="ev-bar"></span><div class="grow"><div>${esc(ev.icon)} ${esc(ev.title)}</div>${ev.late ? `<div class="small warn-text">${ev.kind === 'task' ? `Vencida el ${fmtShort(ev.due)}` : 'Atrasado'}</div>` : ''}</div>
         <a class="gcal" href="${gcalLink(ev)}" target="_blank" rel="noopener" title="Añadir a Google Calendar" aria-label="Añadir a Google Calendar">G+</a></div>`;
     }).join('') : '<p class="muted small">Nada programado. Los calendarios de cuidado aparecen aquí cuando les pones una fecha de última vez.</p>'}</section>`;
   $('#pm', root).onclick = () => { calMonth = m === 0 ? [y - 1, 11] : [y, m - 1]; rerender(); };

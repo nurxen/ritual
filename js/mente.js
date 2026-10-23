@@ -1,6 +1,6 @@
 // Mente: foco (estudiar, leer, arte, proyecto), inglés y objetivos
 import {
-  S, itemsOf, addItem, saveItem, deleteItem, catByKey, getVal, setVal, streak, applyTemplate, activeCats, isDone,
+  S, itemsOf, addItem, saveItem, deleteItem, catByKey, getVal, setVal, streak, applyTemplate, activeCats, isDone, goalHabit, focusCats,
 } from './store.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, formData, num } from './ui.js';
 import { ENGLISH_IDEAS, sectionColor } from './data.js';
@@ -30,7 +30,8 @@ function foco(root) {
   const cats = mindCats();
   let t = null; try { t = JSON.parse(localStorage.getItem(TK) || 'null'); } catch { t = null; }
   if (t && t.pid !== S.profile.id) t = null;
-  let selId = t?.cid || cats.find(c => c.key === 'study')?.id || cats[0]?.id;
+  // por defecto: lo que tenga la meta más grande (p. ej. estudiar), o tu primera línea de foco
+  let selId = t?.cid || [...cats].sort((a, b) => (Number(b.target) || 0) - (Number(a.target) || 0))[0]?.id || focusCats()[0]?.id || cats[0]?.id;
   const elapsed = () => t ? Math.floor(((t.running ? Date.now() - t.start : 0) + (t.acc || 0)) / 1000) : 0;
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   const week = c => Array.from({ length: 7 }, (_, i) => minsOf(c, addDays(today(), -i))).reduce((a, b) => a + b, 0);
@@ -76,16 +77,27 @@ function objetivos(root) {
     ${list.map(g => {
       const d = g.data; const left = d.deadline ? diffDays(d.deadline, today()) : null;
       const steps = d.steps || []; const sd = steps.filter(s => s.done).length;
-      const pct = steps.length ? Math.round(sd / steps.length * 100) : (d.progress || 0);
+      const gh = goalHabit(g);
+      const ws = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z]+/).filter(w => w.length > 4);
+      const sug = !gh && !d.done ? activeCats().find(c => !['text', 'scale', 'money'].includes(c.type) && ws(c.name).some(w => ws(d.title).includes(w))) : null;
+      const pct = gh ? Math.round(gh.pct * 100) : steps.length ? Math.round(sd / steps.length * 100) : (d.progress || 0);
       return `<section class="card goal ${d.done ? 'is-done' : ''}">
         <div class="row between"><h3>${esc(d.title)}</h3><button class="icon-btn" data-ge="${g.id}">${icon('edit')}</button></div>
         ${d.why ? `<p class="small muted">${esc(d.why)}</p>` : ''}
         <div class="bar big"><i style="width:${pct}%"></i></div>
         <p class="small">${pct}%${left !== null ? ` · ${left >= 0 ? `quedan ${left} días` : 'fecha pasada'}` : ''}</p>
+        ${sug ? `<button class="btn small color block mt-s" data-link="${g.id}" data-cat="${sug.id}" style="--c:#A7BCEB">Vincular con ${esc(sug.icon)} ${esc(sug.name)} para medirlo solo</button>` : ''}
+        ${gh ? `<div class="kpis"><div><b>${gh.met}/${gh.elapsed}</b><span>días cumplidos</span></div><div><b>🔥${gh.streak}</b><span>racha</span></div><div><b>${gh.planned ? gh.planned - gh.elapsed : '—'}</b><span>días por delante</span></div></div>
+          <p class="small muted">Se cumple el día que completas ${esc(gh.cat.icon)} ${esc(gh.cat.name)}${gh.cat.target ? ` (${gh.cat.target}${gh.cat.type === 'number' ? ' ' + esc(gh.cat.unit || '') : ' min'})` : ''}. Se apunta en Hoy o con el temporizador de Foco.</p>` : ''}
         ${steps.length ? `<div class="list">${steps.map((s, i) => `<label class="check-row"><input type="checkbox" data-gs="${g.id}" data-i="${i}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.t)}</span></label>`).join('')}</div>` : ''}
       </section>`;
     }).join('') || '<p class="muted center mt">Define 2–3 objetivos para este trimestre. Divídelos en pasos pequeños.</p>'}`;
   $('#addG', root).onclick = () => goalEdit(null);
+  $$('[data-link]', root).forEach(b => b.onclick = async () => {
+    const g = S.items.find(i => i.id === b.dataset.link);
+    await saveItem(g, { linkCat: b.dataset.cat, start: g.data.start || (g.created_at || today()).slice(0, 10) });
+    toast('Objetivo vinculado'); rerender();
+  });
   $$('[data-ge]', root).forEach(b => b.onclick = () => goalEdit(S.items.find(i => i.id === b.dataset.ge)));
   $$('[data-gs]', root).forEach(b => b.onchange = async () => {
     const g = S.items.find(i => i.id === b.dataset.gs); const steps = [...g.data.steps];
@@ -99,6 +111,9 @@ function goalEdit(g) {
     <label class="field"><span>Objetivo</span><input name="title" value="${esc(d.title || '')}" placeholder="Correr 10 km, B2 de inglés…"></label>
     <label class="field"><span>¿Por qué es importante?</span><input name="why" value="${esc(d.why || '')}"></label>
     <label class="field"><span>Fecha objetivo</span><input type="date" name="deadline" value="${d.deadline || ''}"></label>
+    <label class="field"><span>Vincular a un hábito diario (el progreso se calcula solo)</span><select name="linkCat"><option value="">— Sin vincular —</option>
+      ${activeCats().filter(c => !['text', 'scale', 'money'].includes(c.type)).map(c => `<option value="${c.id}" ${d.linkCat === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>Desde</span><input type="date" name="start" value="${d.start || (g?.created_at || '').slice(0, 10) || today()}"></label>
     <label class="field"><span>Pasos (uno por línea)</span><textarea class="input" name="steps" rows="5">${esc((d.steps || []).map(s => s.t).join('\n'))}</textarea></label>
     <label class="field"><span>Progreso manual (si no usas pasos): <b id="pv">${d.progress || 0}%</b></span><input type="range" name="progress" min="0" max="100" step="5" value="${d.progress || 0}"></label>
     <label class="check-row"><input type="checkbox" name="done" ${d.done ? 'checked' : ''}><span>Conseguido 🎉</span></label>
@@ -108,7 +123,7 @@ function goalEdit(g) {
       const f = formData(body); if (!f.title) return;
       const old = d.steps || [];
       const steps = f.steps.split('\n').map(s => s.trim()).filter(Boolean).map(t => ({ t, done: !!old.find(o => o.t === t)?.done }));
-      const data = { ...f, progress: Number(f.progress) || 0, steps, deadline: f.deadline || null };
+      const data = { ...f, progress: Number(f.progress) || 0, steps, deadline: f.deadline || null, linkCat: f.linkCat || null, start: f.start || today() };
       g ? await saveItem(g, data) : await addItem('goal', data); closeSheet(); rerender();
     };
     $('#del', body)?.addEventListener('click', async () => { if (await confirmBox('Borrar el objetivo')) { await deleteItem(g); rerender(); } });

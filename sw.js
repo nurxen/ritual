@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app y abrirla rápido.
 // Cambia VERSION cada vez que subas cambios para que los móviles se actualicen.
-const VERSION = 'ritual-v7';
+const VERSION = 'ritual-v8';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/store.js', './js/db.js', './js/ui.js', './js/data.js', './js/config.js',

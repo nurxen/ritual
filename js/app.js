@@ -4,7 +4,7 @@ import {
   S, loadProfiles, loadProfileData, updateProfile, applyTemplate, TEMPLATES, activeCats, getVal, setVal, isDone,
   isHabit, dayCompletion, itemsOf, careStatus, markCareDone, iplBlock, products, productExpiry, checkRoutine,
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
-  postIpl, scrubBlock, lipsPlan, planApplied,
+  postIpl, scrubBlock, lipsPlan, planApplied, focusCats, minutesOf, unsetCare,
 } from './store.js';
 import { PLANS } from './plans.js';
 import {
@@ -112,10 +112,9 @@ export function profileEditor() {
         <label class="field"><span>Ejercicio (min)</span><input type="number" name="exerciseGoal" value="${s.exerciseGoal}"></label>
         <label class="field"><span>Tiempo libre habitual (min)</span><input type="number" name="freeTime" value="${s.freeTime}"></label>
       </div>
-      <label class="field"><span>Línea 📚 del plan: ¿a qué dedicas tu rato de foco?</span>
-        <select name="focusKey">${focusOpts.map(c => `<option value="${c.key || c.id}" ${(s.focusKey === (c.key || c.id)) ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}
-        <option value="none" ${s.focusKey === 'none' ? 'selected' : ''}>No mostrar</option></select></label>
-      <label class="field"><span>Minutos de foco al día</span><input type="number" name="focusGoal" value="${s.focusGoal ?? 30}"></label>
+      <label class="field"><span>Líneas de foco del plan (puedes marcar varias; usan la meta de cada hábito)</span>
+        <div class="chips">${focusOpts.map(c => `<label class="chip check"><input type="checkbox" name="focusKeys" data-multi="1" value="${c.key || c.id}" ${focusCats().some(x => x.id === c.id) ? 'checked' : ''}>${esc(c.icon)} ${esc(c.name)}</label>`).join('')}</div></label>
+      <label class="field"><span>Minutos al día si el hábito no tiene meta propia</span><input type="number" name="focusGoal" value="${s.focusGoal ?? 30}"></label>
       <h3 class="mt">Ciudad (UV y humedad)</h3>
       <div class="grid3">
         <label class="field"><span>Ciudad</span><input name="city" value="${esc(s.city)}"></label>
@@ -134,7 +133,7 @@ export function profileEditor() {
       const f = formData(body);
       await updateProfile({ name: f.name || p.name, avatar, color });
       await saveSettings({
-        exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, focusKey: f.focusKey, focusGoal: f.focusGoal ?? 30,
+        exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, focusKeys: f.focusKeys || [], focusGoal: f.focusGoal ?? 30,
         city: f.city, lat: f.lat ?? 40.4168, lon: f.lon ?? -3.7038,
       });
       sessionStorage.clear();
@@ -341,13 +340,10 @@ function planCard() {
   const { red, orange, green } = dayPlan();
   const exCat = S.cats.find(c => c.type === 'exercise' && c.active);
   const exMin = exCat ? Number(getVal(exCat.id, today())?.min) || 0 : 0;
-  const fCat = s.focusKey === 'none' ? null : S.cats.find(c => (c.key || c.id) === s.focusKey && c.active);
-  const fv = fCat ? getVal(fCat.id, today()) : 0;
-  const fMin = fCat ? (fCat.type === 'bool_minutes' ? Number(fv?.min) || 0 : Number(fv) || 0) : 0;
-  const fGoal = Number(s.focusGoal) || 30;
+  const focus = focusCats().map(c => ({ c, min: minutesOf(c, getVal(c.id, today())), goal: Number(c.target) || Number(s.focusGoal) || 30 }));
   const free = Number(s.todayFree?.day === today() ? s.todayFree.min : s.freeTime) || 0;
   const all = [...red, ...orange, ...green];
-  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + Math.max(0, s.exerciseGoal - exMin) + (fCat ? Math.max(0, fGoal - fMin) : 0);
+  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + Math.max(0, s.exerciseGoal - exMin) + focus.reduce((a, f) => a + Math.max(0, f.goal - f.min), 0);
   const q = QUOTES[parseDay(today()).getDate() % QUOTES.length];
   const group = (label, list, dot) => `<div class="plan-group"><p class="plan-label">${label}</p>${list.map(t => taskLine(t, dot)).join('') || '<p class="small" style="color:#A8A29A">Nada aquí</p>'}</div>`;
   return `<section class="card plan">
@@ -356,7 +352,7 @@ function planCard() {
       : '<p class="note-line">No tienes tareas pendientes. <a href="#/agenda/tareas">Añade alguna</a> y aquí verás tu plan.</p>'}
     <div class="plan-goals">
       <button class="goal-chip" data-open="${exCat?.id || ''}"><b>${exMin}/${s.exerciseGoal}′</b><span>🏋️ Ejercicio</span><div class="bar"><i style="width:${Math.min(100, exMin / s.exerciseGoal * 100)}%"></i></div></button>
-      ${fCat ? `<button class="goal-chip" data-open="${fCat.id}"><b>${fMin}/${fGoal}′</b><span>${esc(fCat.icon)} ${esc(fCat.name)}</span><div class="bar"><i style="width:${Math.min(100, fMin / fGoal * 100)}%"></i></div></button>` : ''}
+      ${focus.map(f => `<button class="goal-chip" data-open="${f.c.id}"><b>${f.min}/${f.goal}′</b><span>${esc(f.c.icon)} ${esc(f.c.name)}</span><div class="bar"><i style="width:${Math.min(100, f.min / f.goal * 100)}%"></i></div></button>`).join('')}
     </div>
     <p class="quote">${esc(q)}</p>
     ${all.length ? `<p class="note-line ${need > free ? 'warn' : ''}">${need > free ? `Necesitas unos ${need} min y tienes ${free}. Céntrate en lo rojo y lo naranja.` : `Te cabe todo: unos ${need} min de ${free}.`}</p>` : ''}
@@ -375,6 +371,11 @@ function alertCards() {
   }
   const plan = PLANS.find(p => p.forName.test(S.profile.name) && !planApplied(p));
   if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>${planVersionApplied(plan) ? 'Novedades en tu plan' : 'Tu plan de renovación'}</b><span>${planVersionApplied(plan) ? esc(plan.changes || '') : 'Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.'}</span></button>`);
+  const yday = addDays(today(), -1);
+  if (activeCats().some(isHabit) && !activeCats().some(c => getVal(c.id, yday) !== undefined) && new Date().getHours() < 23)
+    out.push(`<button class="rcard" data-yday style="--c:#CFC7BE;text-align:left"><div class="rc-top">🗓️<span>Ayer</span></div><b>Ayer no apuntaste nada</b><span>Si te acuerdas, rellénalo en un minuto: las rachas y las estadísticas lo agradecen.</span></button>`);
+  const un = unsetCare();
+  if (un.length) out.push(`<a class="rcard" href="#/cuidado/calendarios" style="--c:#CFC7BE"><div class="rc-top">⏰<span>${un.length}</span></div><b>Recordatorios sin empezar</b><span>${un.map(i => esc(i.data.name)).join(', ')}. Márcalos como hechos la primera vez para que empiecen a avisarte.</span></a>`);
   const pi = postIpl();
   if (pi) out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">🤍<span>post-IPL</span></div><b>${esc(pi.zones.join(', '))}</b><span>${pi.first24 ? 'Hoy: LV Perusvoide; nada de desodorante, perfume ni bruma en esas zonas. ' : ''}Sin exfoliante hasta el ${pi.until.split('-').reverse().slice(0, 2).join('/')}. SPF si van al sol.</span></div>`);
   const lp = lipsPlan(); const lc = catByKey('lips');
@@ -408,9 +409,9 @@ export function renderHoy(view) {
   const hello = h < 13 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
   const rank = s => { const i = SECTIONS.indexOf(s); return i < 0 ? 99 : i; };
   const secs = [...new Set(cats.map(c => c.section))].sort((a, b) => rank(a) - rank(b));
-  if (hoyFilter !== 'Todo' && !secs.includes(hoyFilter)) hoyFilter = 'Todo';
-  const shown = hoyFilter === 'Todo' ? cats : cats.filter(c => c.section === hoyFilter);
-  const ordered = hoyFilter === 'Todo' ? secs.flatMap(s => shown.filter(c => c.section === s)) : shown;
+  if (!['Todo', 'Pendientes'].includes(hoyFilter) && !secs.includes(hoyFilter)) hoyFilter = 'Todo';
+  const shown = hoyFilter === 'Todo' ? cats : hoyFilter === 'Pendientes' ? cats.filter(c => !isDone(c, getVal(c.id, day))) : cats.filter(c => c.section === hoyFilter);
+  const ordered = ['Todo', 'Pendientes'].includes(hoyFilter) ? secs.flatMap(s => shown.filter(c => c.section === s)) : shown;
   const w = S.weather; const tips = isToday ? weatherTips(w) : [];
   view.innerHTML = `${topbar()}
     <div class="hero">
@@ -433,9 +434,10 @@ export function renderHoy(view) {
     <div class="section-head"><h2>Hábitos</h2><a href="#/ajustes/categorias">Editar</a></div>
     <div class="filter"><div class="chips rail">
       <button class="chip ${hoyFilter === 'Todo' ? 'on' : ''}" data-f="Todo">Todo</button>
+      <button class="chip ${hoyFilter === 'Pendientes' ? 'on' : ''}" data-f="Pendientes">Pendientes ${habits.filter(c => !isDone(c, getVal(c.id, day))).length}</button>
       ${secs.map(s => `<button class="chip ${hoyFilter === s ? 'c-on' : ''}" data-f="${esc(s)}" style="--c:${sectionColor(s)}"><span class="swatch-dot"></span>${esc(s)}</button>`).join('')}
     </div></div>
-    ${cats.length ? `<div class="tiles" id="tiles">${ordered.map(c => tile(c, day)).join('')}</div>`
+    ${cats.length ? (ordered.length ? `<div class="tiles" id="tiles">${ordered.map(c => tile(c, day)).join('')}</div>` : '<div class="card empty"><p>¡Todo hecho por hoy! ✨</p></div>')
       : '<div class="card empty"><p>No tienes hábitos activos.</p><a class="btn primary" href="#/ajustes/categorias">Añadir hábitos</a></div>'}`;
   $('#prevD').onclick = () => { S.date = addDays(S.date, -1); rerender(); };
   $('#nextD').onclick = () => { if (S.date < today()) { S.date = addDays(S.date, 1); rerender(); } };
@@ -457,6 +459,7 @@ export function renderHoy(view) {
     b.classList.add('done'); await saveItem(t, { done: true, doneAt: today() });
     toast('Tarea hecha'); setTimeout(rerender, 350);
   });
+  $$('[data-yday]', view).forEach(b => b.onclick = () => { S.date = addDays(today(), -1); rerender(); window.scrollTo(0, 0); });
   $$('[data-plan]', view).forEach(b => b.onclick = () => planSheet(PLANS.find(p => p.id === b.dataset.plan)));
   $$('[data-care]', view).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.care)); toast('Registrado'); rerender(); });
   $('#freeBtn')?.addEventListener('click', () => sheet('Tiempo libre hoy', `

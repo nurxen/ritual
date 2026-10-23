@@ -1,7 +1,7 @@
 // Progreso en pestañas: Semana, Rachas, Ejercicio, Datos
 import {
   S, activeCats, getVal, isDone, isHabit, streak, bestStreak, itemsOf, careStatus, products, productExpiry,
-  correlations, catByKey, dayCompletion,
+  correlations, catByKey, dayCompletion, upcomingEvents,
 } from './store.js';
 import { esc, $, today, addDays, diffDays, fmtShort, eur, num, parseDay, MONTHS } from './ui.js';
 import { sectionColor, CARE_GROUP_COLORS } from './data.js';
@@ -25,8 +25,9 @@ function semana(root) {
   const habits = activeCats().filter(isHabit);
   const rows = habits.map(c => ({ c, n: days.filter(d => isDone(c, getVal(c.id, d))).length })).sort((a, b) => b.n - a.n);
   const avg = days.reduce((a, d) => a + dayCompletion(d), 0) / 7;
-  const next = itemsOf('care').map(i => ({ i, st: careStatus(i) })).filter(x => !x.st.unset && diffDays(x.st.next, today()) <= 7).sort((a, b) => a.st.next.localeCompare(b.st.next));
-  const exp = products().map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30);
+  const next = upcomingEvents(7).filter(e => e.kind === 'care');
+  const exps = products().filter(p => !['drop', 'pause'].includes(p.data.status) && !p.data.finished).map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30);
+  const expired = exps.filter(x => x.e.days < 0); const exp = exps.filter(x => x.e.days >= 0);
   const doneTasks = itemsOf('task').filter(t => t.data.done && t.data.doneAt && diffDays(today(), t.data.doneAt) < 7).length;
   const perDay = days.slice().reverse().map(d => ({ d, p: dayCompletion(d) }));
   const DOW = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
@@ -44,8 +45,9 @@ function semana(root) {
       <section class="card"><h3 style="--c:#EFA3AE;color:var(--c-ink)">A mejorar</h3>${rows.slice(-3).reverse().map(r => `<p class="small">${esc(r.c.icon)} ${esc(r.c.name)} <b>${r.n}/7</b></p>`).join('')}</section>
     </div>` : ''}
     <div class="section-head"><h2>La semana que viene</h2></div>
-    <section class="card list">${next.length ? next.map(x => `<div class="li" style="--c:${CARE_GROUP_COLORS[x.i.data.group] || '#CFC7BE'}"><span class="swatch-dot"></span><span class="grow">${esc(x.i.data.group === 'ipl' ? 'IPL ' + x.i.data.name : x.i.data.name)}</span><span class="small muted">${x.st.next <= today() ? 'ya' : fmtShort(x.st.next)}</span></div>`).join('') : '<p class="muted small" style="padding:8px">Nada programado.</p>'}</section>
-    ${exp.length ? `<section class="card flat"><h3>⏳ Caducan pronto</h3><p class="small">${exp.map(x => esc(x.p.data.name)).join(', ')}</p></section>` : ''}`;
+    <section class="card list">${next.length ? next.map(x => `<div class="li" style="--c:${CARE_GROUP_COLORS[x.group] || '#CFC7BE'}"><span class="swatch-dot"></span><span class="grow">${esc(x.title)}</span><span class="small muted">${x.day <= today() ? 'ya' : fmtShort(x.day)}</span></div>`).join('') : '<p class="muted small" style="padding:8px">Nada programado.</p>'}</section>
+    ${expired.length ? `<a class="card flat" href="#/cuidado/inventario" style="display:block;text-decoration:none"><h3>🗑️ Ya caducados</h3><p class="small">${expired.map(x => esc(x.p.data.name)).join(', ')}</p><p class="small muted">Tíralos o, si la fecha de apertura está mal, corrígela en Inventario.</p></a>` : ''}
+    ${exp.length ? `<section class="card flat"><h3>⏳ Caducan este mes</h3><p class="small">${exp.map(x => `${esc(x.p.data.name)} (${fmtShort(x.e.exp)})`).join(', ')}</p></section>` : ''}`;
 }
 
 // ------------------------------------------------------------ RACHAS + MAPA

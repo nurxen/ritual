@@ -145,7 +145,7 @@ export function isDone(cat, v) {
     case 'bool_minutes': return !!v.done || Number(v.min) > 0;
     case 'money': return v.amount !== null && v.amount !== undefined && v.amount !== '';
     case 'text': return String(v).trim().length > 0;
-    case 'exercise': return !!v.type && (v.type === 'descanso' || Number(v.min) > 0);
+    case 'exercise': return !!v.type; // basta con haber elegido el tipo (los minutos son opcionales)
     default: return !!v;
   }
 }
@@ -203,15 +203,30 @@ export function iplZoneStatus(it) {
   const d = it.data;
   const interval = d.phase === 'mantenimiento' ? 28 : 14;
   const win = d.phase === 'mantenimiento' ? 4 : 3;
-  if (!d.last) return { label: 'Lista para empezar', tone: 'accent', next: today(), due: true };
+  const wait = sunBlockUntil();
+  const fmtD = s => s.split('-').reverse().slice(0, 2).join('/');
+  if (!d.last) return wait ? { label: `Desde el ${fmtD(wait)}`, tone: 'neutral', next: wait, due: false, waiting: true }
+    : { label: 'Lista para empezar', tone: 'accent', next: today(), due: true };
   const since = diffDays(today(), d.last);
-  if (since > interval * 2) return { label: 'Reinicia la fase inicial', tone: 'warn', next: today(), due: true, restart: true };
+  if (since > interval * 2) return wait ? { label: `Reinicia desde el ${fmtD(wait)}`, tone: 'neutral', next: wait, due: false, waiting: true, restart: true }
+    : { label: 'Reinicia la fase inicial', tone: 'warn', next: today(), due: true, restart: true };
   const next = addDays(d.last, interval);
   const n = diffDays(next, today());
   if (n > win) return { label: `En ${n} días`, tone: 'neutral', next, due: false };
   if (n >= -win) return { label: n === 0 ? 'Toca hoy' : (n > 0 ? `Toca (margen ${n} d)` : `Toca (${-n} d tarde)`), tone: 'accent', next, due: true };
   return { label: `Atrasada ${-n} d`, tone: 'warn', next, due: true, late: true };
 }
+
+// Hasta qué día hay que esperar por sol o autobronceador (null si nada)
+export function sunBlockUntil() {
+  const s = settings(); const c = [];
+  if (s.lastSun) c.push(addDays(s.lastSun, 28));
+  if (s.lastSelfTan) c.push(addDays(s.lastSelfTan, 14));
+  const m = c.sort().pop();
+  return m && m > today() ? m : null;
+}
+// Calendarios que aún no tienen fecha (nunca se han hecho)
+export const unsetCare = () => itemsOf('care').filter(i => i.data.group !== 'ipl' && !i.data.last);
 
 export async function markCareDone(it, day = today()) {
   const d = it.data; const patch = { last: day };
@@ -229,15 +244,22 @@ export const careLogs = () => itemsOf('carelog');
 
 // Próximos eventos (para la agenda y Google Calendar)
 export function upcomingEvents(days = 60) {
-  const out = [];
+  const out = []; const ipl = {};
   for (const i of itemsOf('care')) {
     const st = careStatus(i);
     if (st.unset || diffDays(st.next, today()) > days) continue;
-    out.push({ id: i.id, day: st.next < today() ? today() : st.next, title: `${i.data.group === 'ipl' ? 'IPL · ' : ''}${i.data.name}`, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
+    const day = st.next < today() ? today() : st.next;
+    if (i.data.group === 'ipl') { (ipl[day] ||= []).push(i); continue; }
+    out.push({ id: i.id, day, title: i.data.name, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
+  }
+  // todas las zonas de IPL del mismo día, en un solo evento
+  for (const [day, zs] of Object.entries(ipl)) {
+    out.push({ id: `ipl-${day}`, day, title: `IPL · ${zs.map(z => z.data.name).join(', ')}`, icon: '✨', kind: 'care', group: 'ipl', late: zs.some(z => careStatus(z).tone === 'warn') });
   }
   for (const t of itemsOf('task')) {
     if (t.data.done || !t.data.due || diffDays(t.data.due, today()) > days) continue;
-    out.push({ id: t.id, day: t.data.due, title: t.data.title, icon: '☐', kind: 'task' });
+    const late = t.data.due < today();
+    out.push({ id: t.id, day: late ? today() : t.data.due, title: t.data.title, icon: '☐', kind: 'task', late, due: t.data.due });
   }
   for (const g of itemsOf('goal')) {
     if (g.data.done || !g.data.deadline || diffDays(g.data.deadline, today()) > days || g.data.deadline < today()) continue;
@@ -353,21 +375,22 @@ export function findOwned(what, except) {
 export function shoppingList() {
   const ps = products();
   const wish = ps.filter(p => pStatus(p) === 'wish');
-  const refill = [];
+  const refill = []; const ask = [];
   for (const p of ps) {
     const s = pStatus(p); const d = p.data;
     if (d.refilled || (d.snoozeUntil && d.snoozeUntil > today())) continue;
     const ending = d.low || d.finished || (productExpiry(p)?.days ?? 999) <= 30;
     if (!ending || s === 'wish' || s === 'drop' || s === 'pause') continue;
+    if (s === 'use' && !d.replaceWith && !d.finished) { ask.push(p); continue; }
     let what = null;
     if (d.replaceWith) what = d.replaceWith;
     else if (s === 'keep') what = `${d.brand ? d.brand + ' ' : ''}${d.name}`;
     if (!what) continue;
     // si ya tienes el sustituto (o está en la lista de compra), no hace falta reponer
     if (d.replaceWith && findOwned(d.replaceWith, p)) continue;
-    refill.push({ p, what, why: d.finished ? 'Se acabó' : d.low ? 'Casi vacío' : 'Caduca pronto' });
+    refill.push({ p, what, why: d.finished ? 'Se acabó' : d.low ? 'Casi vacío' : (productExpiry(p)?.days ?? 0) < 0 ? 'Caducado' : 'Caduca pronto' });
   }
-  return { wish, refill };
+  return { wish, refill, ask };
 }
 // "Comprado" en Reponer: añade el bote nuevo (sin abrir) y saca el viejo de la lista
 export async function refillBought(p, oldFinished) {
@@ -473,6 +496,32 @@ export async function applyPlan(plan) {
     plans: [...new Set([...(s.plans || []), plan.id])],
     planVersions: { ...(s.planVersions || {}), [plan.id]: plan.version || 1 },
   });
+}
+
+// Líneas de foco del plan de Hoy (pueden ser varias)
+export function focusCats() {
+  const s = settings();
+  let keys = s.focusKeys;
+  if (!Array.isArray(keys)) {
+    keys = s.focusKey && s.focusKey !== 'none' ? [s.focusKey] : [];
+    // por defecto, añade también lo de Mente con una meta grande (p. ej. estudiar 2 h)
+    activeCats().filter(c => c.section === 'Mente' && c.type === 'minutes' && Number(c.target) >= 60).forEach(c => keys.push(c.key || c.id));
+  }
+  return [...new Set(keys)].map(k => S.cats.find(c => (c.key || c.id) === k && c.active)).filter(Boolean);
+}
+export const minutesOf = (c, v) => c.type === 'bool_minutes' ? Number(v?.min) || 0 : Number(v) || 0;
+
+// Objetivo vinculado a un hábito: días cumplidos desde que empezó
+export function goalHabit(g) {
+  const cat = g.data.linkCat && S.cats.find(c => c.id === g.data.linkCat);
+  if (!cat) return null;
+  const start = g.data.start || (g.created_at || today()).slice(0, 10);
+  const end = g.data.deadline || null;
+  const elapsed = Math.max(1, diffDays(today(), start) + 1);
+  let met = 0;
+  for (let i = 0; i < elapsed; i++) if (isDone(cat, getVal(cat.id, addDays(start, i)))) met++;
+  const planned = end ? Math.max(1, diffDays(end, start) + 1) : null;
+  return { cat, met, elapsed, planned, streak: streak(cat), pct: planned ? met / planned : met / elapsed };
 }
 
 // ---------------- Tareas / plan del día ----------------

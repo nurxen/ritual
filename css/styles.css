@@ -348,7 +348,7 @@ input[type=color] { width: 38px; height: 38px; border: 0; padding: 0; background
 .ipl-status .note { background: rgba(255, 255, 255, .5); color: var(--on); }
 .ipl-status h2 { font-size: 26px; font-stretch: 72%; text-transform: uppercase; font-weight: 850; }
 .big-emoji { font-size: 34px; }
-.zones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.zones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .zone { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r); padding: 13px; font-size: 14px; display: flex; flex-direction: column; gap: 5px; }
 .zone.warn { border-color: var(--warn); }
 .zone.accent { border-color: var(--c); }
@@ -459,3 +459,20 @@ input[type=color] { width: 38px; height: 38px; border: 0; padding: 0; background
 .steps details { margin-top: 2px; }
 .list details summary, .card details summary { cursor: pointer; }
 .kpis > div { min-width: 0; }
+
+/* v8 */
+.zone { min-width: 0; }
+.zone .btn { white-space: normal; text-align: center; }
+.rail-cards { scroll-padding-inline: 16px; }
+.care-row { display: flex; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.care-row:last-child { border-bottom: 0; }
+.care-row .ci { margin-top: 2px; }
+.care-row details summary { cursor: pointer; font-weight: 600; }
+details.grp { margin-top: 10px; }
+details.grp > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); cursor: pointer; font-size: 16px; }
+details.grp > summary::-webkit-details-marker { display: none; }
+details.grp > summary::after { content: '›'; font-size: 22px; line-height: 1; color: var(--muted); transition: transform .2s; }
+details.grp[open] > summary::after { transform: rotate(90deg); }
+details.grp[open] > summary { border-radius: var(--r) var(--r) 0 0; border-bottom: 0; }
+details.grp > .card { border-radius: 0 0 var(--r) var(--r); margin-bottom: 0; }
+.zone .pill { white-space: normal; max-width: 100%; }
