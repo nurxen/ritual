@@ -17,6 +17,7 @@ import { renderProgress } from './progress.js';
 import { renderAgenda } from './agenda.js';
 import { renderMente } from './mente.js';
 import { renderSettings, openMenu, planSheet } from './settings.js';
+import { planVersionApplied } from './store.js';
 
 const app = document.getElementById('app');
 const LAST = 'ritual_last_profile';
@@ -373,9 +374,9 @@ function alertCards() {
       <b>${dueZ.map(z => esc(z.data.name)).join(', ')}</b><span>${block.length ? esc(block[0].msg) : restart ? 'Toca reiniciar la fase inicial.' : 'Te toca sesión.'}</span></a>`);
   }
   const plan = PLANS.find(p => p.forName.test(S.profile.name) && !planApplied(p));
-  if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>Tu plan de renovación</b><span>Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.</span></button>`);
+  if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>${planVersionApplied(plan) ? 'Novedades en tu plan' : 'Tu plan de renovación'}</b><span>${planVersionApplied(plan) ? esc(plan.changes || '') : 'Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.'}</span></button>`);
   const pi = postIpl();
-  if (pi) out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">🤍<span>post-IPL</span></div><b>${esc(pi.zones.join(', '))}</b><span>Hasta el ${pi.until.split('-').reverse().slice(0, 2).join('/')}: crema sin perfume, sin bruma ni exfoliante en esas zonas.</span></div>`);
+  if (pi) out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">🤍<span>post-IPL</span></div><b>${esc(pi.zones.join(', '))}</b><span>${pi.first24 ? 'Hoy: LV Perusvoide; nada de desodorante, perfume ni bruma en esas zonas. ' : ''}Sin exfoliante hasta el ${pi.until.split('-').reverse().slice(0, 2).join('/')}. SPF si van al sol.</span></div>`);
   const lp = lipsPlan(); const lc = catByKey('lips');
   if (lp && !lp.cured && lc && !getVal(lc.id, today())) out.push(`<a class="rcard" href="#/cuidado/labios" style="--c:#F2A9BC"><div class="rc-top">👄<span>Día ${diffDays(today(), lp.start) + 1}</span></div><b>Labios: bálsamo en vez de tocar</b><span>Racha ${streak(lc)} días. Apunta los impulsos para verlos venir.</span></a>`);
   itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => {

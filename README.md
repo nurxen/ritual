@@ -67,6 +67,10 @@ Sube a GitHub, en las mismas carpetas, los archivos de `cambios-v4`: `sw.js`, `c
 
 Después, en el perfil de Nuria: **Hoy → tarjeta “Tu plan de renovación” → Aplicar a mi perfil** (o **⋯ → Planes de cuidado**). Antes de aplicar ves qué productos se actualizan y cuáles se añaden. No se borra nada y se puede volver a aplicar sin duplicar.
 
+### Versión 5 (más productos de Nuria)
+
+Sube los archivos de `cambios-v5` igual que antes (`sw.js` y en `js/`: `app.js`, `care.js`, `data.js`, `plans.js`, `settings.js`, `store.js`). En el perfil de Nuria aparece en Hoy la tarjeta **“Novedades en tu plan”** (o la de siempre si aún no lo habías aplicado). Para añadir más novedades en el futuro se edita `js/plans.js` y se sube `version`.
+
 ### Google Calendar (opcional, una vez)
 
 Para la suscripción automática hay que instalar una pequeña función en Supabase:

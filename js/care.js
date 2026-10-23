@@ -232,7 +232,7 @@ function ipl(root) {
         <li><b>La víspera:</b> rasura las zonas para que la piel no esté recién irritada.</li>
         <li><b>El día después:</b> entreno suave o descanso; evita sauna y agua muy caliente.</li>
         <li><b>Exfoliación corporal:</b> deja 48 h antes y después del IPL. La app te avisa.</li>
-        <li><b>Después (24–48 h):</b> crema sin perfume en las zonas tratadas, sin bruma ni exfoliante.</li>
+        <li><b>Después:</b> crema sin perfume. 24 h sin desodorante, perfume ni bruma en la zona; 48 h sin exfoliante; SPF si va al sol.</li>
         <li><b>Sol:</b> protege las zonas tratadas, sobre todo las primeras 48 h.</li>
       </ul>
       ${nextDue ? `<p class="small">Próxima sesión: <b>${nextDue.next <= today() ? 'ya toca' : fmtShort(nextDue.next)}</b></p>` : ''}

@@ -369,7 +369,7 @@ export function postIpl() {
   const day = lastLog(d => d.group === 'ipl');
   if (!day || diffDays(today(), day) >= 2) return null;
   const zones = itemsOf('carelog').filter(l => l.data.group === 'ipl' && l.data.day === day).map(l => l.data.name);
-  return { day, zones, until: addDays(day, 2) };
+  return { day, zones, until: addDays(day, 2), first24: diffDays(today(), day) < 1 };
 }
 export function scrubBlock() {
   const ip = lastLog(d => d.group === 'ipl');
@@ -399,10 +399,17 @@ export function planPreview(plan) {
     cats: plan.cats.filter(k => !S.cats.some(c => c.key === k)),
     tasks: plan.tasks.filter(t => !tasks().some(x => x.data.title === t.title)),
     guide: plan.guide,
+    remove: (plan.remove || []).flatMap(r => { const re = new RegExp(r.match, 'i'); return products().filter(p => re.test(`${p.data.name} ${p.data.brand || ''}`) && (!r.status || pStatus(p) === r.status)); }),
   };
 }
-export const planApplied = plan => (settings().plans || []).includes(plan.id);
+// Versión del plan ya aplicada (0 = nunca)
+export const planVersionApplied = plan => settings().planVersions?.[plan.id] ?? ((settings().plans || []).includes(plan.id) ? 1 : 0);
+export const planApplied = plan => planVersionApplied(plan) >= (plan.version || 1);
 export async function applyPlan(plan) {
+  for (const r of plan.remove || []) {
+    const re = new RegExp(r.match, 'i');
+    for (const p of products().filter(p => re.test(`${p.data.name} ${p.data.brand || ''}`) && (!r.status || pStatus(p) === r.status))) await deleteItem(p);
+  }
   const pv = planPreview(plan);
   for (const { pp, ex } of [...pv.update, ...pv.add]) {
     const { match, ...fields } = pp;
@@ -428,9 +435,10 @@ export async function applyPlan(plan) {
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
   await saveSettings({
     ...extra,
-    noBuy: [...new Set([...(s.noBuy || []), ...(plan.noBuy || [])])],
+    noBuy: [...new Set([...(s.noBuy || []), ...(plan.noBuy || [])])].filter(x => !(plan.noBuyRemove || []).includes(x)),
     routineNotes: { ...(s.routineNotes || {}), ...(plan.routineNotes || {}) },
     plans: [...new Set([...(s.plans || []), plan.id])],
+    planVersions: { ...(s.planVersions || {}), [plan.id]: plan.version || 1 },
   });
 }
 
