@@ -61,6 +61,12 @@ Si cambias algún archivo, súbelo de nuevo a GitHub y en `sw.js` cambia `VERSIO
 
 **No hay que tocar la base de datos.** Al entrar, cada perfil se adapta solo: "Algo artístico o estudiar" pasa a ser **Algo artístico** (con su historial) y se añade **Estudiar**; "Mi proyecto" se oculta si no tenía datos.
 
+### Pasar a la versión 4 (plan de Nuria)
+
+Sube a GitHub, en las mismas carpetas, los archivos de `cambios-v4`: `sw.js`, `css/styles.css` y en `js/`: `app.js`, `care.js`, `data.js`, `plans.js` (nuevo), `settings.js` y `store.js`. No toques `js/config.js` ni la base de datos.
+
+Después, en el perfil de Nuria: **Hoy → tarjeta “Tu plan de renovación” → Aplicar a mi perfil** (o **⋯ → Planes de cuidado**). Antes de aplicar ves qué productos se actualizan y cuáles se añaden. No se borra nada y se puede volver a aplicar sin duplicar.
+
 ### Google Calendar (opcional, una vez)
 
 Para la suscripción automática hay que instalar una pequeña función en Supabase:

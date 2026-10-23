@@ -3,7 +3,10 @@ import * as db from './db.js';
 import { CONFIG } from './config.js';
 import {
   S, saveCategory, deleteCategory, moveCategory, applyTemplate, upcomingEvents, calToken, resetCalToken,
+  planPreview, applyPlan, planApplied,
 } from './store.js';
+import { PLANS } from './plans.js';
+import { STATUS } from './data.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays } from './ui.js';
 import { CATALOG, SECTIONS, TYPE_INFO, EMOJIS, sectionColor } from './data.js';
 import { topbar, rerender, profileEditor, renderPicker, applyTheme } from './app.js';
@@ -14,6 +17,7 @@ export function openMenu() {
   sheet('Opciones', `
     <div class="card list menu-list" style="margin:0">
       <a class="li" href="#/ajustes/categorias" data-go><span class="ci">⚙︎</span><span class="grow">Mis categorías y hábitos</span>${icon('right')}</a>
+      <button class="li" id="oPlans"><span class="ci">📋</span><span class="grow">Planes de cuidado</span>${icon('right')}</button>
       <a class="li" href="#/ajustes/calendario" data-go><span class="ci">📅</span><span class="grow">Conectar con Google Calendar</span>${icon('right')}</a>
       <button class="li" id="oProfile"><span class="ci">🙂</span><span class="grow">Editar perfil y plan de Hoy</span>${icon('right')}</button>
       <button class="li" id="oSwitch"><span class="ci">⇄</span><span class="grow">Cambiar de perfil</span>${icon('right')}</button>
@@ -22,13 +26,17 @@ export function openMenu() {
     </div>
     <h3 class="mt">Apariencia</h3>
     <div class="seg mt-s">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button class="${theme === k ? 'on' : ''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
-    <p class="small muted center">Ritual v3 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
+    <p class="small muted center">Ritual v4 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
     $$('[data-go]', body).forEach(a => a.addEventListener('click', () => closeSheet()));
     $$('[data-theme-set]', body).forEach(b => b.onclick = () => {
       localStorage.setItem('ritual_theme', b.dataset.themeSet); applyTheme();
       $$('[data-theme-set]', body).forEach(x => x.classList.toggle('on', x === b));
     });
     $('#oProfile', body).onclick = profileEditor;
+    $('#oPlans', body).onclick = () => sheet('Planes de cuidado', `<div class="stack">${PLANS.map(p => `<button class="card" data-pl="${p.id}" style="text-align:left;margin:0">
+        <h3>${esc(p.title)}</h3><p class="small muted">${esc(p.summary)}</p><p class="small"><b>${planApplied(p) ? '✓ Aplicado a tu perfil' : 'Sin aplicar'}</b></p></button>`).join('')}</div>`, b2 => {
+      $$('[data-pl]', b2).forEach(x => x.onclick = () => planSheet(PLANS.find(p => p.id === x.dataset.pl)));
+    });
     $('#oSwitch', body).onclick = () => { closeSheet(); location.hash = ''; renderPicker(); };
     $('#oExport', body).onclick = exportData;
     $('#oOut', body)?.addEventListener('click', async () => { await db.signOut(); localStorage.removeItem('ritual_last_profile'); location.hash = ''; location.reload(); });
@@ -191,4 +199,38 @@ function catWizard(c) {
     });
   };
   sheet(c ? 'Editar hábito' : 'Nuevo hábito', '', draw);
+}
+
+// ------------------------------------------------------------------ PLAN: revisar y aplicar
+export function planSheet(plan) {
+  const pv = planPreview(plan);
+  const cnt = k => [...pv.update, ...pv.add].filter(x => x.pp.status === k).length;
+  const line = x => `<div class="li"><span>${STATUS[x.pp.status]?.e || '•'}</span><div class="grow"><b>${esc(x.pp.name)}</b> <span class="small muted">${esc(x.pp.brand || '')}</span>
+    ${x.ex && x.ex.data.name !== x.pp.name ? `<br><span class="small muted">Actualiza tu “${esc(x.ex.data.name)}”</span>` : ''}</div></div>`;
+  sheet(plan.title, `<div class="stack">
+    ${planApplied(plan) ? '<p class="note ok">Ya lo aplicaste. Si lo vuelves a aplicar, se actualizan los productos sin borrar tus fechas, precios ni historial.</p>' : ''}
+    <p class="small">${esc(plan.summary)}</p>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div><b>${cnt('keep')}</b><span>✅ repones</span></div><div><b>${cnt('useup')}</b><span>🟡 gastar</span></div><div><b>${cnt('wish')}</b><span>🛒 comprar</span></div>
+      <div><b>${cnt('pause')}</b><span>⏸️ en pausa</span></div><div><b>${cnt('drop')}</b><span>❌ lo dejas</span></div><div><b>${plan.guide.length}</b><span>temas de guía</span></div>
+    </div>
+    <details><summary><b>${pv.update.length} productos que ya tenías</b> se actualizan</summary><div class="list">${pv.update.map(line).join('') || '<p class="small muted">Ninguno</p>'}</div></details>
+    <details><summary><b>${pv.add.length} productos nuevos</b> en tu inventario</summary><div class="list">${pv.add.map(line).join('')}</div></details>
+    <ul class="tips small">
+      <li>Rutina nueva con doble limpieza y noches por días (CeraVe, niacinamida…).</li>
+      <li>Plan de labios: hábito diario 👄, registro de impulsos y pausa de los labiales que resecan.</li>
+      ${pv.care.length ? `<li>Calendarios: lavado a fondo del pelo y lavar el rodillo, cada semana.</li>` : ''}
+      <li>Exfoliante corporal 1–2 veces por semana y nunca 48 h antes ni después del IPL.</li>
+      ${pv.tasks.length ? `<li>${pv.tasks.length} tareas para hoy, como revisar máscaras y glosses.</li>` : ''}
+      <li>Lista de “no comprar” y tu lista de la compra con precios.</li>
+    </ul>
+    <p class="small muted">No se borra nada. Si algún producto no es exactamente el tuyo, lo editas o lo borras después en Inventario.</p>
+    <button class="btn primary block" id="applyPlan">${planApplied(plan) ? 'Volver a aplicar' : 'Aplicar a mi perfil'}</button>
+  </div>`, body => {
+    $('#applyPlan', body).onclick = async e => {
+      e.target.disabled = true; e.target.textContent = 'Aplicando…';
+      await applyPlan(plan);
+      closeSheet(); toast('Plan aplicado ✨'); location.hash = '#/cuidado'; rerender();
+    };
+  });
 }

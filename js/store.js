@@ -223,7 +223,7 @@ export async function markCareDone(it, day = today()) {
     Object.assign(patch, { sessions, phase });
   }
   await saveItem(it, patch);
-  await addItem('carelog', { careId: it.id, day, name: d.name, group: d.group });
+  await addItem('carelog', { careId: it.id, day, name: d.name, group: d.group, key: d.key || null });
 }
 export const careLogs = () => itemsOf('carelog');
 
@@ -270,6 +270,8 @@ export function iplBlock() {
     const until = new Date(lw.getTime() + 12 * 3600000);
     if (until > new Date()) reasons.push({ type: 'train', until, msg: `Has entrenado hace menos de 12 h. Podrás a partir de las ${until.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}${dayStr(until) !== today() ? ' de mañana' : ''}.` });
   }
+  const sc = lastLog(d => d.key === 'body_scrub' || /exfoli/i.test(d.name || ''));
+  if (sc && diffDays(today(), sc) < 2) reasons.push({ type: 'scrub', msg: `Exfoliaste el ${sc.split('-').reverse().slice(0, 2).join('/')}: deja 48 h antes del IPL (desde el ${addDays(sc, 2).split('-').reverse().slice(0, 2).join('/')}).` });
   const s = settings();
   if (s.lastSun) {
     const until = addDays(s.lastSun, 28);
@@ -294,9 +296,28 @@ export function productExpiry(p) {
 export function tagsFromIngredients(text) {
   return INGREDIENT_KEYWORDS.filter(([, re]) => re.test(text || '')).map(([t]) => t);
 }
-export function routineProducts(slot) {
-  return products().filter(p => !p.data.finished && (p.data.slot === slot || p.data.slot === 'both'))
-    .sort((a, b) => (a.data.step ?? 5) - (b.data.step ?? 5));
+// Estado del producto (los antiguos no tienen: cuentan como "en uso")
+export const pStatus = p => p.data.status || 'use';
+export function pArea(p) {
+  const d = p.data;
+  if (d.area) return d.area;
+  const t = (d.type || '').toLowerCase();
+  if (t.includes('pelo') || t.includes('champ') || t.includes('gel')) return 'Pelo';
+  if (t.includes('corporal') || t.includes('manos') || t.includes('perfume')) return 'Cuerpo';
+  if (t.includes('uñas')) return 'Uñas';
+  if (t.includes('maquillaje') || t.includes('labios')) return 'Maquillaje';
+  return 'Cuidado facial';
+}
+// Productos de una rutina; dow = día de la semana (0 domingo) para las rutinas por días
+export function routineProducts(slot, dow = null) {
+  const key = slot === 'pm' ? 'pmDays' : 'amDays';
+  return products().filter(p => {
+    const d = p.data; const s = pStatus(p);
+    if (d.finished || s === 'drop' || s === 'pause') return false;
+    if (!(d.slot === slot || d.slot === 'both')) return false;
+    if (dow !== null && Array.isArray(d[key]) && d[key].length && !d[key].includes(dow)) return false;
+    return true;
+  }).sort((a, b) => ((slot === 'pm' ? a.data.stepPm ?? a.data.step : a.data.step) ?? 5) - ((slot === 'pm' ? b.data.stepPm ?? b.data.step : b.data.step) ?? 5));
 }
 export function checkRoutine(slot) {
   const list = routineProducts(slot);
@@ -315,6 +336,102 @@ export function checkRoutine(slot) {
     if (pmTags.some(x => ['retinoid', 'aha', 'bha'].includes(x))) t.anyActive = true;
   }
   return RULES.filter(r => r.test(t));
+}
+
+// Lista de la compra: lo que quieres comprar + lo que repones cuando se acaba
+export function shoppingList() {
+  const ps = products();
+  const wish = ps.filter(p => pStatus(p) === 'wish');
+  const refill = [];
+  for (const p of ps) {
+    const s = pStatus(p); const d = p.data;
+    const ending = d.low || d.finished || (productExpiry(p)?.days ?? 999) <= 30;
+    if (!ending || s === 'wish' || s === 'drop' || s === 'pause') continue;
+    if (s === 'keep') refill.push({ p, what: d.replaceWith || `${d.brand ? d.brand + ' ' : ''}${d.name}` });
+    else if (d.replaceWith) refill.push({ p, what: d.replaceWith });
+  }
+  return { wish, refill };
+}
+
+// ---------------- Labios ----------------
+export const lipsPlan = () => settings().lips || null;
+export const lipTriggers = () => itemsOf('liptrigger');
+export async function cureLips() {
+  for (const p of products()) {
+    if (pStatus(p) === 'pause') await saveItem(p, { status: p.data.afterCure || 'use' });
+  }
+  await saveSettings({ lips: { ...(lipsPlan() || {}), cured: true, curedAt: today() } });
+}
+
+// ---------------- IPL y exfoliación (48 h) ----------------
+const lastLog = pred => itemsOf('carelog').filter(l => pred(l.data)).map(l => l.data.day).sort().pop() || null;
+export function postIpl() {
+  const day = lastLog(d => d.group === 'ipl');
+  if (!day || diffDays(today(), day) >= 2) return null;
+  const zones = itemsOf('carelog').filter(l => l.data.group === 'ipl' && l.data.day === day).map(l => l.data.name);
+  return { day, zones, until: addDays(day, 2) };
+}
+export function scrubBlock() {
+  const ip = lastLog(d => d.group === 'ipl');
+  if (ip && diffDays(today(), ip) < 2) return `Hiciste IPL el ${ip.split('-').reverse().slice(0, 2).join('/')}: no exfolies hasta el ${addDays(ip, 2).split('-').reverse().slice(0, 2).join('/')}.`;
+  const soon = itemsOf('care').filter(z => z.data.group === 'ipl' && z.data.last).map(z => ({ z, st: careStatus(z) }))
+    .filter(x => !x.st.restart && diffDays(x.st.next, today()) <= 2 && diffDays(x.st.next, today()) >= -3);
+  if (soon.length) return `Te toca IPL (${soon.map(x => x.z.data.name).join(', ')}) en menos de 48 h: exfolia después de la sesión.`;
+  return null;
+}
+
+// ---------------- Planes de cuidado ----------------
+function planMatches(plan) {
+  const pool = products().slice(); const used = new Set();
+  return plan.products.map(pp => {
+    const re = new RegExp(pp.match, 'i');
+    const ex = pool.find(p => !used.has(p.id) && re.test(`${p.data.name} ${p.data.brand || ''}`));
+    if (ex) used.add(ex.id);
+    return { pp, ex };
+  });
+}
+export function planPreview(plan) {
+  const m = planMatches(plan);
+  const careKeys = new Set(itemsOf('care').map(i => i.data.key));
+  return {
+    update: m.filter(x => x.ex), add: m.filter(x => !x.ex),
+    care: plan.care.filter(k => !careKeys.has(k)),
+    cats: plan.cats.filter(k => !S.cats.some(c => c.key === k)),
+    tasks: plan.tasks.filter(t => !tasks().some(x => x.data.title === t.title)),
+    guide: plan.guide,
+  };
+}
+export const planApplied = plan => (settings().plans || []).includes(plan.id);
+export async function applyPlan(plan) {
+  const pv = planPreview(plan);
+  for (const { pp, ex } of [...pv.update, ...pv.add]) {
+    const { match, ...fields } = pp;
+    if (ex) {
+      const d = ex.data;
+      await saveItem(ex, { ...fields, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
+    } else {
+      await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, pao: 'pao' in fields ? fields.pao : 12 });
+    }
+  }
+  if (pv.cats.length || pv.care.length) await applyTemplate(pv.cats, pv.care);
+  for (const [key, patch] of Object.entries(plan.careUpdates || {})) {
+    const it = itemsOf('care').find(i => i.data.key === key);
+    if (it) await saveItem(it, patch);
+  }
+  for (const t of pv.tasks) await addItem('task', { title: t.title, prio: t.prio, est: t.est, due: t.dueToday ? today() : null, done: false });
+  for (const g of plan.guide) {
+    const ex = itemsOf('guide').find(i => i.data.gid === g.gid);
+    ex ? await saveItem(ex, g) : await addItem('guide', g);
+  }
+  const s = settings();
+  const extra = {};
+  if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
+  await saveSettings({
+    ...extra,
+    noBuy: [...new Set([...(s.noBuy || []), ...(plan.noBuy || [])])],
+    routineNotes: { ...(s.routineNotes || {}), ...(plan.routineNotes || {}) },
+    plans: [...new Set([...(s.plans || []), plan.id])],
+  });
 }
 
 // ---------------- Tareas / plan del día ----------------

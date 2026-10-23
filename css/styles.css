@@ -451,3 +451,11 @@ input[type=color] { width: 38px; height: 38px; border: 0; padding: 0; background
   .tabbar a span { font-size: 9.5px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* v4: inventario con estados */
+.prod .stat { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 14px; background: color-mix(in srgb, var(--c) 35%, var(--surface)); }
+.prod { align-items: flex-start; }
+.steps details summary { cursor: pointer; color: var(--c-ink); font-weight: 600; margin-top: 2px; }
+.steps details { margin-top: 2px; }
+.list details summary, .card details summary { cursor: pointer; }
+.kpis > div { min-width: 0; }

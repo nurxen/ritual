@@ -4,7 +4,9 @@ import {
   S, loadProfiles, loadProfileData, updateProfile, applyTemplate, TEMPLATES, activeCats, getVal, setVal, isDone,
   isHabit, dayCompletion, itemsOf, careStatus, markCareDone, iplBlock, products, productExpiry, checkRoutine,
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
+  postIpl, scrubBlock, lipsPlan, planApplied,
 } from './store.js';
+import { PLANS } from './plans.js';
 import {
   esc, $, $$, icon, toast, sheet, closeSheet, today, addDays, diffDays, fmtLong, parseDay,
   avatarHtml, resizeImage, formData, relDay, eur, num,
@@ -14,7 +16,7 @@ import { renderCare } from './care.js';
 import { renderProgress } from './progress.js';
 import { renderAgenda } from './agenda.js';
 import { renderMente } from './mente.js';
-import { renderSettings, openMenu } from './settings.js';
+import { renderSettings, openMenu, planSheet } from './settings.js';
 
 const app = document.getElementById('app');
 const LAST = 'ritual_last_profile';
@@ -370,9 +372,18 @@ function alertCards() {
     out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${block.length ? '#EFA3AE' : CARE_GROUP_COLORS.ipl}"><div class="rc-top">${block.length ? '🔒' : '✨'}<span>IPL</span></div>
       <b>${dueZ.map(z => esc(z.data.name)).join(', ')}</b><span>${block.length ? esc(block[0].msg) : restart ? 'Toca reiniciar la fase inicial.' : 'Te toca sesión.'}</span></a>`);
   }
-  itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => out.push(`
-    <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#CFC7BE'}"><div class="rc-top">${esc(i.data.icon)}<span>${careStatus(i).label}</span></div>
-      <b>${esc(i.data.name)}</b><button class="btn tiny" data-care="${i.id}">Hecho</button></div>`));
+  const plan = PLANS.find(p => p.forName.test(S.profile.name) && !planApplied(p));
+  if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>Tu plan de renovación</b><span>Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.</span></button>`);
+  const pi = postIpl();
+  if (pi) out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">🤍<span>post-IPL</span></div><b>${esc(pi.zones.join(', '))}</b><span>Hasta el ${pi.until.split('-').reverse().slice(0, 2).join('/')}: crema sin perfume, sin bruma ni exfoliante en esas zonas.</span></div>`);
+  const lp = lipsPlan(); const lc = catByKey('lips');
+  if (lp && !lp.cured && lc && !getVal(lc.id, today())) out.push(`<a class="rcard" href="#/cuidado/labios" style="--c:#F2A9BC"><div class="rc-top">👄<span>Día ${diffDays(today(), lp.start) + 1}</span></div><b>Labios: bálsamo en vez de tocar</b><span>Racha ${streak(lc)} días. Apunta los impulsos para verlos venir.</span></a>`);
+  itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => {
+    const blk = i.data.key === 'body_scrub' ? scrubBlock() : null;
+    out.push(`
+    <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#CFC7BE'}"><div class="rc-top">${esc(i.data.icon)}<span>${blk ? 'Espera' : careStatus(i).label}</span></div>
+      <b>${esc(i.data.name)}</b>${blk ? `<span>${esc(blk)}</span>` : `<button class="btn tiny" data-care="${i.id}">Hecho</button>`}</div>`);
+  });
   const exp = products().map(p => ({ p, e: productExpiry(p) })).filter(x => x.e && x.e.days <= 30).sort((a, b) => a.e.days - b.e.days);
   if (exp.length) out.push(`<a class="rcard" href="#/cuidado/inventario" style="--c:#CFC7BE"><div class="rc-top">⏳<span>${exp.length}</span></div><b>Caducan pronto</b><span>${exp.slice(0, 3).map(x => `${esc(x.p.data.name)} (${x.e.days < 0 ? 'caducado' : relDay(x.e.exp)})`).join(', ')}</span></a>`);
   const warns = [...checkRoutine('am'), ...checkRoutine('pm')].filter(r => r.level === 'warn');
@@ -445,6 +456,7 @@ export function renderHoy(view) {
     b.classList.add('done'); await saveItem(t, { done: true, doneAt: today() });
     toast('Tarea hecha'); setTimeout(rerender, 350);
   });
+  $$('[data-plan]', view).forEach(b => b.onclick = () => planSheet(PLANS.find(p => p.id === b.dataset.plan)));
   $$('[data-care]', view).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.care)); toast('Registrado'); rerender(); });
   $('#freeBtn')?.addEventListener('click', () => sheet('Tiempo libre hoy', `
       <p class="muted">¿Cuántos minutos tienes hoy para tareas, ejercicio y foco?</p>

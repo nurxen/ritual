@@ -2,16 +2,18 @@
 import {
   S, itemsOf, addItem, saveItem, deleteItem, careStatus, markCareDone, iplBlock, lastWorkout, products,
   productExpiry, routineProducts, checkRoutine, tagsFromIngredients, settings, saveSettings, catByKey, getVal, setVal,
+  pStatus, pArea, shoppingList, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
 } from './store.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
 import {
   SAMPLE_PRODUCTS, SAMPLE_PERFUMES, SAMPLE_COMBOS, PERFUME_MOMENTS, TAG_LABELS, GUIDE, SOURCES, POST_GYM_PROTOCOL,
-  CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES,
+  CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES, STATUS, AREAS, MAKEUP_SUBS, DOW_SHORT, LIP_TRIGGERS,
 } from './data.js';
 import { topbar, rerender } from './app.js';
 
 const PAGES = {
   rutinas: { t: 'Rutinas', e: '🫧', c: '#F2A9BC', d: 'Mañana, noche y post-Box' },
+  labios: { t: 'Labios', e: '👄', c: '#EFA3AE', d: 'Plan para curarlos y cortar el hábito' },
   ipl: { t: 'IPL', e: '✨', c: '#D3AEE6', d: 'Philips Lumea por zonas' },
   tinte: { t: 'Tinte', e: '🎨', c: '#E8B796', d: 'Color, raíces e historial' },
   calendarios: { t: 'Calendarios', e: '🗓️', c: '#96D1CC', d: 'Mascarillas, brochas, uñas…' },
@@ -30,7 +32,7 @@ export function renderCare(view, sub, sub2) {
     <div class="page-banner" style="--c:${P.c}"><h1>${P.t}</h1><p>${P.d}</p></div>
     <div id="careBody" style="--c:${P.c}"></div>`;
   const body = $('#careBody', view);
-  ({ rutinas, ipl, tinte, calendarios, inventario, perfumes, looks, viaje, guia })[sub](body, sub2);
+  ({ rutinas, labios, ipl, tinte, calendarios, inventario, perfumes, looks, viaje, guia })[sub](body, sub2);
 }
 
 function hub(view) {
@@ -52,46 +54,151 @@ function hub(view) {
     perfumes: `${itemsOf('perfume').length} perfumes`,
     looks: `${itemsOf('combo').filter(c => c.data.type === 'look').length} looks`,
     viaje: 'Calcula cantidades',
-    guia: `${GUIDE.length} temas`,
+    guia: `${GUIDE.length + itemsOf('guide').length} temas`,
+    labios: lipStatusText(),
   };
+  const shop = shoppingList();
+  status.inventario = exp ? `${exp} caducan pronto` : shop.wish.length ? `${shop.wish.length} por comprar` : status.inventario;
   const badge = { ipl: zDue, calendarios: cDue, inventario: exp, tinte: roots && careStatus(roots).due ? 1 : 0 };
   const tileH = (k, cls = '') => `<a class="hub-tile ${cls}" href="#/cuidado/${k}" style="--c:${PAGES[k].c}">
       ${badge[k] ? `<span class="h-badge">${badge[k]}</span>` : ''}<span class="h-emoji">${PAGES[k].e}</span><b>${PAGES[k].t}</b><span>${status[k]}</span></a>`;
   view.innerHTML = `${topbar()}
     <div class="page-title"><h1>Cuidado</h1></div>
     <div class="hub">
-      ${tileH('rutinas', 'wide')}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
+      ${tileH('rutinas', 'wide')}${lipsPlan() ? tileH('labios', 'wide') : ''}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
       ${tileH('perfumes')}${tileH('looks')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
-    </div>`;
+    </div>
+    ${lipsPlan() ? '' : '<p class="small muted mt">¿Quieres el plan para curar labios? Actívalo desde Labios en <a href="#/cuidado/labios">este enlace</a>.</p>'}`;
 }
 
 // ------------------------------------------------------------------ RUTINAS
+const DOW_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+let rDay = null;
+function stepHtml(p, slot) {
+  const d = p.data; const wish = pStatus(p) === 'wish';
+  const days = slot === 'pm' ? d.pmDays : d.amDays;
+  return `<li><span class="grow"><b>${esc(d.type || '')}</b>${wish ? ' <span class="pill accent">🛒 por comprar</span>' : ''}<br>
+    ${esc(d.name)}${d.brand ? ` <span class="muted small">${esc(d.brand)}</span>` : ''}
+    ${wish && d.meanwhile ? `<br><span class="small muted">Mientras tanto: ${esc(d.meanwhile)}</span>` : ''}
+    ${Array.isArray(days) && days.length ? `<br><span class="small" style="color:var(--c-ink)">${days.length} ${slot === 'pm' ? 'noches' : 'días'} por semana</span>` : ''}
+    ${d.note ? `<details class="small muted"><summary>Cómo usarlo</summary>${esc(d.note)}</details>` : ''}</span></li>`;
+}
 function rutinas(root) {
   const has = products().length > 0;
+  const dow = rDay ?? new Date().getDay();
+  const notes = settings().routineNotes || {};
   const block = (slot, title, catKey) => {
-    const list = routineProducts(slot);
+    const list = routineProducts(slot, dow);
     const rules = checkRoutine(slot);
     const cat = catByKey(catKey);
     const done = cat && getVal(cat.id, today());
     return `<section class="card">
-      <div class="row between"><h3>${title}</h3>${cat ? `<button class="btn tiny ${done ? 'primary' : 'ghost'}" data-done="${cat.id}">${done ? '✓ Hecha' : 'Marcar hecha'}</button>` : ''}</div>
-      ${list.length ? `<ol class="steps">${list.map(p => `<li><span><b>${esc(p.data.type || '')}</b><br>${esc(p.data.name)}${p.data.brand ? ` <span class="muted small">${esc(p.data.brand)}</span>` : ''}</span></li>`).join('')}</ol>`
-        : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
+      <div class="row between"><h3>${title}</h3>${cat && rDay === null ? `<button class="btn tiny ${done ? 'primary' : 'ghost'}" data-done="${cat.id}">${done ? '✓ Hecha' : 'Marcar hecha'}</button>` : ''}</div>
+      ${notes[slot] ? `<p class="small muted">${esc(notes[slot])}</p>` : ''}
+      ${list.length ? `<ol class="steps">${list.map(p => stepHtml(p, slot)).join('')}</ol>` : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
       ${rules.length ? rules.map(r => `<p class="note ${r.level}">${r.level === 'warn' ? '⚠️' : 'ℹ️'} ${esc(r.msg)}</p>`).join('')
         : list.length ? '<p class="note ok">✓ Rutina compatible: sin combinaciones irritantes.</p>' : ''}
     </section>`;
   };
+  // Semana: qué productos con días van cada noche
+  const rot = products().filter(p => !p.data.finished && !['drop', 'pause'].includes(pStatus(p)) && (p.data.slot === 'pm' || p.data.slot === 'both') && Array.isArray(p.data.pmDays) && p.data.pmDays.length);
+  const order = [1, 2, 3, 4, 5, 6, 0];
   root.innerHTML = `
     ${!has ? `<div class="card empty"><p>Aún no tienes productos.</p>
-      <button class="btn primary" id="loadSample">Cargar la lista de productos de ejemplo</button>
-      <p class="muted small">CeraVe, Bioderma, The Ordinary, Deliplus, Neutrogena… Luego puedes editar o borrar.</p></div>` : ''}
+      <button class="btn primary" id="loadSample">Cargar la lista de productos de ejemplo</button></div>` : ''}
+    <div class="chips rail mb">${order.map(n => `<button class="chip ${n === dow ? 'on' : ''}" data-dow="${n}">${n === new Date().getDay() ? 'Hoy' : DOW_LONG[n].slice(0, 3)}</button>`).join('')}</div>
+    ${rDay !== null && rDay !== new Date().getDay() ? `<p class="small muted">Viendo la rutina del ${DOW_LONG[dow]}.</p>` : ''}
     ${block('am', '☀️ Mañana', 'am_routine')}
     ${block('pm', '🌙 Noche', 'pm_routine')}
-    <section class="card"><h3>🏋️ Protocolo post-Box</h3><ol class="steps">${POST_GYM_PROTOCOL.map(s => `<li>${esc(s)}</li>`).join('')}</ol></section>
-    <p class="muted small center">Para cambiar el orden o la rutina de un producto, edítalo en <a href="#/cuidado/inventario">Inventario</a>.</p>`;
+    ${rot.length ? `<section class="card"><h3>Tus noches de la semana</h3>
+      <div style="display:grid;grid-template-columns:auto repeat(7,1fr);gap:6px;align-items:center;font-size:13px">
+        <span></span>${order.map(n => `<b class="center" style="${n === new Date().getDay() ? 'color:var(--c-ink)' : ''}">${DOW_SHORT[n]}</b>`).join('')}
+        ${rot.map(p => `<span style="font-weight:600">${esc(p.data.brand || p.data.name)}</span>${order.map(n => `<span class="center" style="height:22px;border-radius:7px;background:${p.data.pmDays.includes(n) ? 'var(--c)' : 'var(--soft)'}"></span>`).join('')}`).join('')}
+      </div></section>` : ''}
+    <section class="card"><h3>🏋️ Protocolo post-Box</h3><ol class="steps">${POST_GYM_PROTOCOL.map(x => `<li>${esc(x)}</li>`).join('')}</ol></section>
+    <p class="muted small center">Para cambiar el orden, los días o la rutina de un producto, edítalo en <a href="#/cuidado/inventario">Inventario</a>.</p>`;
   $('#loadSample', root)?.addEventListener('click', loadSamples);
+  $$('[data-dow]', root).forEach(b => b.onclick = () => { const n = Number(b.dataset.dow); rDay = n === new Date().getDay() ? null : n; rerender(); });
   $$('[data-done]', root).forEach(b => b.onclick = async () => {
     const id = b.dataset.done; await setVal(id, !getVal(id, today()), today()); rerender();
+  });
+}
+
+// ------------------------------------------------------------------ LABIOS
+function lipStatusText() {
+  const lp = lipsPlan(); if (!lp) return 'Sin activar';
+  if (lp.cured) return 'Curados ✨';
+  const cat = catByKey('lips');
+  return `Día ${diffDays(today(), lp.start) + 1}${cat ? ` · racha ${streak(cat)}` : ''}`;
+}
+function labios(root) {
+  const lp = lipsPlan();
+  if (!lp) {
+    root.innerHTML = `<div class="card empty"><p>Un plan de 2–3 semanas para curar los labios y dejar de morderlos o arrancarlos: registro de impulsos, bálsamo como “tic” y pausa de los productos que resecan.</p>
+      <button class="btn color" id="startLips">Empezar el plan</button></div>`;
+    $('#startLips', root).onclick = async () => {
+      await saveSettings({ lips: { start: today(), cured: false } });
+      if (!catByKey('lips')) { const { applyTemplate } = await import('./store.js'); await applyTemplate(['lips'], []); }
+      rerender();
+    };
+    return;
+  }
+  const cat = catByKey('lips');
+  const dayN = diffDays(today(), lp.start) + 1;
+  const week = Array.from({ length: 7 }, (_, i) => addDays(today(), -6 + i));
+  const trig = lipTriggers();
+  const wk = trig.filter(t => diffDays(today(), t.data.day) < 7);
+  const stopped = wk.filter(t => t.data.outcome === 'frenado').length;
+  const top = Object.entries(wk.reduce((a, t) => ({ ...a, [t.data.where]: (a[t.data.where] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1])[0];
+  const lipsP = products().filter(p => p.data.sub === 'Labios' || /labi|lip|b[aá]lsamo|gloss/i.test(`${p.data.type} ${p.data.name}`));
+  const now = lipsP.filter(p => ['keep', 'use', 'useup'].includes(pStatus(p)) && !p.data.finished);
+  const paused = lipsP.filter(p => pStatus(p) === 'pause');
+  const todayDone = cat && getVal(cat.id, today());
+  const DOWS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+  root.innerHTML = `
+    <section class="card plan">
+      <div class="row between"><h2>${lp.cured ? 'Labios curados' : `Día ${dayN}`}</h2><span class="small" style="color:#C9C3BC">${lp.cured ? `desde el ${fmtShort(lp.curedAt)}` : 'meta: 14–21 días sin tocarlos'}</span></div>
+      ${cat ? `<div style="display:flex;gap:6px;margin:14px 0 8px">${week.map(d => {
+        const ok = getVal(cat.id, d);
+        return `<div style="flex:1;text-align:center"><div style="height:34px;border-radius:10px;background:${ok ? '#AED6A4' : 'rgba(255,255,255,.1)'};display:grid;place-items:center;color:#3A3734;font-weight:800">${ok ? '✓' : ''}</div><span style="font-size:11px;color:#C9C3BC">${DOWS[parseInt(new Date(d + 'T12:00').getDay())]}</span></div>`;
+      }).join('')}</div>
+      <button class="btn block" id="lipToday" style="background:${todayDone ? '#AED6A4' : '#F3F0EB'};color:#3A3734">${todayDone ? '✓ Hoy no los he tocado' : 'Hoy no me he tocado los labios'}</button>
+      <p class="note-line">Racha: ${streak(cat)} días. Si un día fallas, no pasa nada: mañana vuelves a empezar.</p>` : ''}
+    </section>
+
+    <div class="section-head"><h2>¿Has notado el impulso?</h2></div>
+    <p class="small muted" style="margin-top:-6px">Apúntalo: solo con fijarte ya lo haces menos.</p>
+    <div class="chips">${LIP_TRIGGERS.map(([k, l]) => `<button class="chip" data-trig="${k}">${l}</button>`).join('')}</div>
+    ${wk.length ? `<div class="kpis mt"><div><b>${wk.length}</b><span>impulsos esta semana</span></div><div><b>${stopped}</b><span>frenados</span></div><div><b>${top ? esc((LIP_TRIGGERS.find(x => x[0] === top[0]) || ['', top[0]])[1].split(' ')[0]) : '—'}</b><span>${top ? 'situación más repetida' : ''}</span></div></div>` : ''}
+
+    <section class="card mt"><h3>Cuando notes el impulso</h3>
+      <ol class="steps">
+        <li>Ponte bálsamo en vez de tocar la piel: se ablanda y deja de “pedirte” que la arranques.</li>
+        <li>Junta los labios suavemente, apriétalos un poco y respira.</li>
+        <li>Ten algo en las manos, o mastica chicle sin azúcar.</li>
+        <li>¿Un pellejo? No lo arranques: bálsamo y, como mucho, cortaúñas limpio.</li>
+      </ol></section>
+
+    <section class="card"><h3>Día y noche</h3>
+      <p class="small"><b>De día:</b> bálsamo reparador sin perfume, varias veces. <b>De noche:</b> capa gruesa de vaselina o Aquaphor (está en tu rutina de noche).</p>
+      <p class="small"><b>Evita:</b> mentol, alcanfor o sabor (tipo Carmex), exfoliantes labiales y mates de larga duración. Bebe agua de sobra los días de CrossFit.</p>
+    </section>
+
+    ${now.length ? `<div class="section-head"><h2>Usa ahora</h2></div><div class="card list">${now.map(p => `<div class="li"><span>${STATUS[pStatus(p)].e}</span><span class="grow">${esc(p.data.name)} <span class="small muted">${esc(p.data.brand || '')}</span></span></div>`).join('')}</div>` : ''}
+    ${paused.length ? `<div class="section-head"><h2>En pausa</h2><span class="small muted">${paused.length}</span></div><div class="card list">${paused.map(p => `<div class="li"><span>⏸️</span><span class="grow">${esc(p.data.name)} <span class="small muted">${esc(p.data.brand || '')}</span><br><span class="small muted">Al curarse: ${STATUS[p.data.afterCure || 'use'].l.toLowerCase()}</span></span></div>`).join('')}</div>` : ''}
+    ${!lp.cured ? '<button class="btn ghost block mt" id="cured">Mis labios ya están curados</button>' : ''}
+    <p class="small muted mt">Si cuesta mucho cortarlo, un psicólogo especializado en estos hábitos funciona muy bien. Si una herida por dentro no se cura en 2–3 semanas, consulta al médico o al dentista. <a href="#/cuidado/guia/p-labios">Guía completa</a></p>`;
+  $('#lipToday', root)?.addEventListener('click', async () => { await setVal(cat.id, !todayDone, today()); if (!todayDone) toast('Un día más ✨'); rerender(); });
+  $$('[data-trig]', root).forEach(b => b.onclick = () => sheet('¿Qué ha pasado?', `<div class="stack">
+      <button class="btn color block" data-out="frenado" style="--c:#A8C99A">Lo he frenado (bálsamo, respirar…)</button>
+      <button class="btn ghost block" data-out="tocado">Me los he tocado</button></div>`, body => {
+    $$('[data-out]', body).forEach(x => x.onclick = async () => {
+      await addItem('liptrigger', { day: today(), at: new Date().toISOString(), where: b.dataset.trig, outcome: x.dataset.out });
+      closeSheet(); toast(x.dataset.out === 'frenado' ? '¡Bien frenado!' : 'Apuntado. Bálsamo y seguimos'); rerender();
+    });
+  }));
+  $('#cured', root)?.addEventListener('click', async () => {
+    if (await confirmBox(`Los ${paused.length} productos en pausa pasarán a su estado final (gastar o reponer).`, 'Están curados')) { await cureLips(); toast('¡Labios curados! ✨'); rerender(); }
   });
 }
 
@@ -124,7 +231,8 @@ function ipl(root) {
         <li><b>El día de IPL:</b> entrena por la mañana y haz el IPL por la noche, con al menos 12 h entre medias. O descansa ese día.</li>
         <li><b>La víspera:</b> rasura las zonas para que la piel no esté recién irritada.</li>
         <li><b>El día después:</b> entreno suave o descanso; evita sauna y agua muy caliente.</li>
-        <li><b>Exfoliación corporal:</b> nunca el mismo día que el IPL en esa zona.</li>
+        <li><b>Exfoliación corporal:</b> deja 48 h antes y después del IPL. La app te avisa.</li>
+        <li><b>Después (24–48 h):</b> crema sin perfume en las zonas tratadas, sin bruma ni exfoliante.</li>
         <li><b>Sol:</b> protege las zonas tratadas, sobre todo las primeras 48 h.</li>
       </ul>
       ${nextDue ? `<p class="small">Próxima sesión: <b>${nextDue.next <= today() ? 'ya toca' : fmtShort(nextDue.next)}</b></p>` : ''}
@@ -218,7 +326,12 @@ function calendarios(root) {
     }).join('')}</div>`).join('') || '<p class="muted">Sin calendarios todavía.</p>'}
     <div class="row gap mt"><button class="btn primary grow" id="addCare">${icon('plus')} Nuevo calendario</button></div>
     ${missing.length ? `<div class="section-head"><h2>Sugerencias</h2></div><div class="chips wrap">${missing.map(c => `<button class="chip" data-add="${c.key}">${c.icon} ${esc(c.name)}</button>`).join('')}</div>` : ''}`;
-  $$('[data-ok]', root).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.ok)); toast('Registrado'); rerender(); });
+  $$('[data-ok]', root).forEach(b => b.onclick = async () => {
+    const it = S.items.find(i => i.id === b.dataset.ok);
+    const blk = it.data.key === 'body_scrub' ? scrubBlock() : null;
+    if (blk && !(await confirmBox(blk, 'Registrar igualmente'))) return;
+    await markCareDone(it); toast('Registrado'); rerender();
+  });
   $$('[data-ed]', root).forEach(b => b.onclick = () => {
     const it = S.items.find(i => i.id === b.dataset.ed);
     it.data.group === 'ipl' ? iplEdit(it) : careEdit(it);
@@ -256,78 +369,145 @@ function careEdit(it) {
 }
 
 // ------------------------------------------------------------------ INVENTARIO
+let invTab = 'productos'; let invStatus = 'all'; let invArea = 'all';
 function inventario(root) {
   const list = products();
-  const active = list.filter(p => !p.data.finished);
-  const done = list.filter(p => p.data.finished);
-  const shop = list.filter(p => p.data.low || p.data.finished || (productExpiry(p)?.days ?? 999) <= 30);
-  const byStore = {};
-  shop.forEach(p => { (byStore[p.data.store || 'Sin tienda'] ||= []).push(p); });
-  const month = today().slice(0, 7);
-  const spentMonth = list.filter(p => (p.data.boughtAt || p.data.openedAt || '').startsWith(month)).reduce((a, p) => a + (Number(p.data.price) || 0), 0);
-
-  const row = p => {
-    const e = productExpiry(p);
-    const st = !e ? '' : e.days < 0 ? '<span class="pill warn">Caducado</span>' : e.days <= 30 ? `<span class="pill accent">${e.days} d</span>` : `<span class="pill">${fmtShort(e.exp)}</span>`;
-    return `<button class="li prod" data-p="${p.id}"><div class="grow"><div>${esc(p.data.name)}</div>
-      <div class="small muted">${[p.data.brand, p.data.type, p.data.store].filter(Boolean).map(esc).join(' · ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}</div></div>${st}</button>`;
-  };
+  const counts = Object.fromEntries(Object.keys(STATUS).map(k => [k, list.filter(p => pStatus(p) === k && !p.data.finished).length]));
+  const shop = shoppingList();
+  const noBuy = settings().noBuy || [];
+  const check = list.filter(p => !p.data.finished && /m[aá]scara|gloss|lip oil|aceite labial|larga duraci|tinte/i.test(`${p.data.type} ${p.data.name}`) && (!p.data.openedAt || (productExpiry(p)?.days ?? 1) < 0));
   root.innerHTML = `
-    <div class="row gap"><button class="btn primary grow" id="addP">${icon('plus')} Producto</button><button class="btn ghost" id="scanP">${icon('scan')} Escanear</button></div>
-    ${!list.length ? `<div class="card empty mt"><button class="btn ghost" id="loadSample">Cargar productos de ejemplo</button></div>` : ''}
-    <div class="section-head"><h2>En uso (${active.length})</h2></div>
-    <div class="card list">${active.map(row).join('') || '<p class="muted">Nada aún.</p>'}</div>
-    ${shop.length ? `<div class="section-head"><h2>Lista de la compra</h2></div><div class="card">${Object.entries(byStore).map(([st, ps]) => `<p class="small"><b>${esc(st)}</b></p><ul class="tips">${ps.map(p => `<li>${esc(p.data.name)}${p.data.url ? ` · <a href="${esc(p.data.url)}" target="_blank" rel="noopener">enlace</a>` : ''}</li>`).join('')}</ul>`).join('')}</div>` : ''}
-    <div class="section-head"><h2>Gasto en cuidado</h2></div>
-    <div class="card"><p>Este mes: <b>${eur(spentMonth)}</b></p>
+    <div class="seg">${[['productos', 'Mis productos'], ['compra', `Compra${shop.wish.length + shop.refill.length ? ` (${shop.wish.length + shop.refill.length})` : ''}`], ['gasto', 'Gasto']].map(([k, l]) => `<button class="${invTab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    <div id="invBody"></div>`;
+  const body = $('#invBody', root);
+  $$('[data-tab]', root).forEach(b => b.onclick = () => { invTab = b.dataset.tab; rerender(); });
+
+  if (invTab === 'compra') {
+    const byStore = {};
+    shop.wish.forEach(p => { (byStore[p.data.store || 'Sin tienda'] ||= []).push(p); });
+    const total = shop.wish.reduce((a, p) => a + (Number(p.data.price) || 0), 0);
+    body.innerHTML = `
+      ${Object.keys(byStore).length ? Object.entries(byStore).map(([st, ps]) => `<div class="section-head"><h2>🛒 ${esc(st)}</h2><span class="small muted">${ps.length}</span></div>
+        <div class="card list">${ps.map(p => `<div class="li"><div class="grow"><b>${esc(p.data.name)}</b> <span class="small muted">${esc(p.data.brand || '')}</span>
+          ${p.data.note ? `<details class="small muted"><summary>Por qué</summary>${esc(p.data.note)}</details>` : ''}</div>
+          ${p.data.price ? `<span class="small" style="font-weight:700">${eur(p.data.price)}</span>` : ''}
+          <button class="btn tiny" data-bought="${p.id}">Comprado</button></div>`).join('')}</div>`).join('')
+        : '<div class="card empty"><p>No tienes nada pendiente de comprar.</p></div>'}
+      ${total ? `<p class="small muted">Total con precio conocido: <b>${eur(total)}</b></p>` : ''}
+      ${shop.refill.length ? `<div class="section-head"><h2>Reponer</h2></div><div class="card list">${shop.refill.map(x => `<div class="li"><span>${STATUS[pStatus(x.p)].e}</span><div class="grow"><b>${esc(x.what)}</b><br><span class="small muted">${x.p.data.finished ? 'Se acabó' : x.p.data.low ? 'Casi vacío' : 'Caduca pronto'}: ${esc(x.p.data.name)}</span></div>${x.p.data.url ? `<a class="small" href="${esc(x.p.data.url)}" target="_blank" rel="noopener">enlace</a>` : ''}</div>`).join('')}</div>` : ''}
+      ${noBuy.length ? `<div class="section-head"><h2>No comprar</h2></div><section class="card" style="--c:#EFA3AE"><ul class="tips">${noBuy.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        <button class="btn tiny ghost" id="editNoBuy">Editar lista</button></section>` : '<button class="btn tiny ghost" id="editNoBuy">Añadir lista de “no comprar”</button>'}`;
+    $$('[data-bought]', body).forEach(b => b.onclick = async () => {
+      const p = S.items.find(i => i.id === b.dataset.bought);
+      await saveItem(p, { status: p.data.onBuy || 'keep', boughtAt: today() });
+      toast('¡A tu neceser! Apunta la fecha cuando lo abras'); rerender();
+    });
+    $('#editNoBuy', body)?.addEventListener('click', () => sheet('No comprar', `<label class="field"><span>Una cosa por línea</span><textarea class="input" rows="10" id="nb">${esc(noBuy.join('\n'))}</textarea></label><button class="btn primary block mt" id="ok">Guardar</button>`, sb => {
+      $('#ok', sb).onclick = async () => { await saveSettings({ noBuy: $('#nb', sb).value.split('\n').map(x => x.trim()).filter(Boolean) }); closeSheet(); rerender(); };
+    }));
+    return;
+  }
+
+  if (invTab === 'gasto') {
+    const month = today().slice(0, 7);
+    const spentMonth = list.filter(p => (p.data.boughtAt || p.data.openedAt || '').startsWith(month)).reduce((a, p) => a + (Number(p.data.price) || 0), 0);
+    const done = list.filter(p => p.data.finished);
+    body.innerHTML = `<section class="card"><p>Este mes: <b>${eur(spentMonth)}</b></p>
       ${done.filter(p => p.data.price && p.data.openedAt && p.data.finishedAt).map(p => {
         const days = Math.max(1, diffDays(p.data.finishedAt, p.data.openedAt));
         return `<p class="small">${esc(p.data.name)}: duró ${days} días · <b>${eur(p.data.price / days * 30)}/mes</b></p>`;
-      }).join('') || '<p class="small muted">Cuando marques un producto como terminado (con precio y fecha de apertura), verás cuánto te cuesta al mes y podrás comparar marcas.</p>'}
-    </div>
-    ${done.length ? `<div class="section-head"><h2>Terminados</h2></div><div class="card list">${done.map(row).join('')}</div>` : ''}`;
-  $('#addP', root).onclick = () => productEdit(null);
-  $('#scanP', root).onclick = () => scanBarcode();
-  $('#loadSample', root)?.addEventListener('click', loadSamples);
-  $$('[data-p]', root).forEach(b => b.onclick = () => productEdit(S.items.find(i => i.id === b.dataset.p)));
+      }).join('') || '<p class="small muted">Cuando marques un producto como terminado (con precio y fecha de apertura), verás cuánto te cuesta al mes y podrás comparar marcas.</p>'}</section>
+      ${done.length ? `<div class="section-head"><h2>Terminados</h2></div><div class="card list">${done.map(p => `<button class="li" data-p="${p.id}"><span class="grow">${esc(p.data.name)}</span><span class="small muted">${fmtShort(p.data.finishedAt)}</span></button>`).join('')}</div>` : ''}`;
+    $$('[data-p]', body).forEach(b => b.onclick = () => productEdit(S.items.find(i => i.id === b.dataset.p)));
+    return;
+  }
+
+  const filtered = list.filter(p => !p.data.finished && pStatus(p) !== 'wish' && (invStatus === 'all' || pStatus(p) === invStatus) && (invArea === 'all' || pArea(p) === invArea));
+  const areas = AREAS.filter(a => list.some(p => pArea(p) === a && !p.data.finished && pStatus(p) !== 'wish'));
+  const row = p => {
+    const e = productExpiry(p); const st = STATUS[pStatus(p)];
+    const exp = !e ? '' : e.days < 0 ? '<span class="pill warn">Caducado</span>' : e.days <= 30 ? `<span class="pill accent">${e.days} d</span>` : '';
+    return `<button class="li prod" data-p="${p.id}"><span class="stat" title="${st.d}" style="--c:${st.c}">${st.e}</span><div class="grow"><div>${esc(p.data.name)}</div>
+      <div class="small muted">${[p.data.brand, p.data.type].filter(Boolean).map(esc).join(', ')}${p.data.low ? ' · <b>casi vacío</b>' : ''}</div>
+      ${p.data.note ? `<div class="small" style="color:var(--ink-2);margin-top:2px">${esc(p.data.note.length > 90 ? p.data.note.slice(0, 90) + '…' : p.data.note)}</div>` : ''}</div>${exp}</button>`;
+  };
+  const groups = [];
+  for (const a of (invArea === 'all' ? AREAS : [invArea])) {
+    const ps = filtered.filter(p => pArea(p) === a);
+    if (!ps.length) continue;
+    if (a === 'Maquillaje') {
+      for (const sub of [...MAKEUP_SUBS, '']) {
+        const sp = ps.filter(p => (p.data.sub || '') === sub || (sub === '' && !MAKEUP_SUBS.includes(p.data.sub)));
+        if (sp.length) groups.push([`Maquillaje${sub ? ' · ' + sub : ''}`, sp]);
+      }
+    } else groups.push([a, ps]);
+  }
+  body.innerHTML = `
+    <div class="row gap"><button class="btn primary grow" id="addP">${icon('plus')} Producto</button><button class="btn ghost" id="scanP">${icon('scan')} Escanear</button></div>
+    ${check.length ? `<section class="card flat mt" style="--c:#EFA3AE"><h3>🧹 Revisa la higiene</h3><p class="small">Máscaras: fuera a los 3–6 meses de abrirlas. Glosses y labiales con aplicador: fuera si llevan más de un año. Estos no tienen fecha de apertura o ya han caducado:</p>
+      <p class="small"><b>${check.map(p => esc(p.data.name)).join(', ')}</b></p></section>` : ''}
+    <div class="chips rail mt">${[['all', `Todos ${list.filter(p => !p.data.finished && pStatus(p) !== 'wish').length}`], ...Object.entries(STATUS).filter(([k]) => k !== 'wish' && counts[k]).map(([k, v]) => [k, `${v.e} ${v.l} ${counts[k]}`])]
+      .map(([k, l]) => `<button class="chip ${invStatus === k ? 'on' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
+    <div class="chips rail mt-s">${['all', ...areas].map(a => `<button class="chip small ${invArea === a ? 'on' : ''}" data-ar="${esc(a)}">${a === 'all' ? 'Todas las zonas' : esc(a)}</button>`).join('')}</div>
+    ${invStatus !== 'all' ? `<p class="small muted mt-s">${STATUS[invStatus].d}.</p>` : ''}
+    ${groups.map(([t, ps]) => `<div class="section-head"><h2>${esc(t)}</h2><span class="small muted">${ps.length}</span></div><div class="card list">${ps.map(row).join('')}</div>`).join('')
+      || '<div class="card empty mt"><p>No hay productos con este filtro.</p></div>'}
+    ${!list.length ? `<div class="card empty mt"><button class="btn ghost" id="loadSample">Cargar productos de ejemplo</button></div>` : ''}`;
+  $('#addP', body).onclick = () => productEdit(null);
+  $('#scanP', body).onclick = () => scanBarcode();
+  $('#loadSample', body)?.addEventListener('click', loadSamples);
+  $$('[data-st]', body).forEach(b => b.onclick = () => { invStatus = b.dataset.st; rerender(); });
+  $$('[data-ar]', body).forEach(b => b.onclick = () => { invArea = b.dataset.ar; rerender(); });
+  $$('[data-p]', body).forEach(b => b.onclick = () => productEdit(S.items.find(i => i.id === b.dataset.p)));
 }
 
 function productEdit(p, prefill = {}) {
-  const d = { slot: 'none', step: 5, tags: [], leaveOn: true, pao: 12, ...(p?.data || {}), ...prefill };
+  const d = { slot: 'none', step: 5, tags: [], leaveOn: true, pao: 12, status: 'use', ...(p?.data || {}), ...prefill };
+  const dayPick = (name, sel) => `<div class="chips">${[1, 2, 3, 4, 5, 6, 0].map(n => `<label class="chip check small"><input type="checkbox" name="${name}" data-multi="1" value="${n}" ${(sel || []).includes(n) ? 'checked' : ''}>${DOW_SHORT[n]}</label>`).join('')}</div>`;
   sheet(p ? 'Editar producto' : 'Nuevo producto', `
     <div class="stack">
       <label class="field"><span>Nombre</span><input name="name" value="${esc(d.name || '')}"></label>
       <div class="grid2"><label class="field"><span>Marca</span><input name="brand" value="${esc(d.brand || '')}"></label>
       <label class="field"><span>Tipo</span><input name="type" list="ptypes" value="${esc(d.type || '')}"></label></div>
-      <datalist id="ptypes">${['Limpiador', 'Tónico', 'Sérum', 'Hidratante', 'Contorno de ojos', 'Protector solar', 'Crema de noche', 'Oclusivo', 'Exfoliante', 'Mascarilla', 'Corporal', 'Pelo', 'Uñas', 'Maquillaje', 'Labios'].map(t => `<option value="${t}">`).join('')}</datalist>
-      <div class="grid2"><label class="field"><span>Rutina</span><select name="slot" class="input">
+      <datalist id="ptypes">${['Limpiador', 'Aceite limpiador', 'Tónico', 'Sérum', 'Hidratante', 'Contorno de ojos', 'Protector solar', 'Crema de noche', 'Oclusivo', 'Exfoliante', 'Mascarilla', 'Skin tint', 'Corrector', 'Polvos', 'Colorete en crema', 'Iluminador líquido', 'Máscara', 'Gel de cejas', 'Bálsamo', 'Gloss', 'Corporal', 'Champú', 'Gel', 'Uñas'].map(t => `<option value="${t}">`).join('')}</datalist>
+      <div class="field"><span>Estado</span><div class="chips">${Object.entries(STATUS).map(([k, v]) => `<label class="chip check"><input type="radio" name="status" value="${k}" ${d.status === k ? 'checked' : ''}>${v.e} ${v.l}</label>`).join('')}</div></div>
+      <div class="grid2"><label class="field"><span>Zona</span><select name="area">${AREAS.map(a => `<option ${(d.area || pArea({ data: d })) === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+      <label class="field"><span>Grupo (maquillaje)</span><select name="sub"><option value="">—</option>${MAKEUP_SUBS.map(a => `<option ${d.sub === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label></div>
+      <label class="field"><span>Cómo usarlo / notas</span><textarea class="input" name="note" rows="3">${esc(d.note || '')}</textarea></label>
+      <label class="field"><span>Cuando se acabe, comprar</span><input name="replaceWith" value="${esc(d.replaceWith || '')}" placeholder="El mismo, u otro producto"></label>
+      <h3 class="mt">Rutina</h3>
+      <div class="grid2"><label class="field"><span>Rutina</span><select name="slot">
         ${[['none', 'Ninguna'], ['am', 'Mañana'], ['pm', 'Noche'], ['both', 'Mañana y noche']].map(([k, l]) => `<option value="${k}" ${d.slot === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="field"><span>Orden (1 = primero)</span><input type="number" name="step" value="${d.step ?? 5}"></label></div>
-      <div class="field"><span>Ingredientes clave</span><div class="chips wrap">${Object.entries(TAG_LABELS).map(([k, l]) => `<label class="chip check"><input type="checkbox" name="tags" data-multi="1" value="${k}" ${d.tags?.includes(k) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
+      <div class="field"><span>Mañanas que toca (ninguno marcado = todas)</span>${dayPick('amDays', d.amDays)}</div>
+      <div class="field"><span>Noches que toca (ninguno marcado = todas)</span>${dayPick('pmDays', d.pmDays)}</div>
+      <div class="field"><span>Ingredientes clave</span><div class="chips">${Object.entries(TAG_LABELS).map(([k, l]) => `<label class="chip check small"><input type="checkbox" name="tags" data-multi="1" value="${k}" ${d.tags?.includes(k) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
       <label class="check-row"><input type="checkbox" name="leaveOn" ${d.leaveOn ? 'checked' : ''}><span>Se deja puesto (no se aclara)</span></label>
+      <h3 class="mt">Caducidad y compra</h3>
       <div class="grid3"><label class="field"><span>Abierto el</span><input type="date" name="openedAt" value="${d.openedAt || ''}"></label>
       <label class="field"><span>PAO (meses)</span><input type="number" name="pao" value="${d.pao ?? ''}"></label>
       <label class="field"><span>Precio €</span><input type="number" step="0.01" name="price" value="${d.price ?? ''}"></label></div>
       <div class="grid2"><label class="field"><span>Tienda</span><input name="store" list="stores" value="${esc(d.store || '')}"></label>
       <label class="field"><span>Enlace</span><input name="url" type="url" value="${esc(d.url || '')}" placeholder="https://…"></label></div>
-      <datalist id="stores"><option value="Primor"><option value="Mercadona"><option value="Druni"><option value="Farmacia"><option value="Amazon"></datalist>
-      <label class="field"><span>Notas</span><input name="note" value="${esc(d.note || '')}"></label>
+      <datalist id="stores"><option value="Primor"><option value="Mercadona"><option value="Druni"><option value="Farmacia"><option value="Online"></datalist>
       ${d.ingredients ? `<details><summary class="small">Ingredientes (INCI)</summary><p class="small muted">${esc(d.ingredients)}</p></details>` : ''}
       <div class="row gap wrap"><label class="check-row"><input type="checkbox" name="low" ${d.low ? 'checked' : ''}><span>Casi vacío</span></label>
       <label class="check-row"><input type="checkbox" name="finished" ${d.finished ? 'checked' : ''}><span>Terminado</span></label>
       <label class="check-row"><input type="checkbox" name="mini" ${d.mini ? 'checked' : ''}><span>Tengo versión mini</span></label></div>
-      <div class="row gap">${p ? `<button class="btn danger ghost" id="del">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="save">Guardar</button></div>
+      <div class="row gap">${p ? `<button class="btn danger ghost" id="del" aria-label="Borrar">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="save">Guardar</button></div>
     </div>`, body => {
     $('#save', body).onclick = async () => {
       const f = formData(body); if (!f.name) return toast('Ponle un nombre');
-      const data = { ...f, tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
+      const radio = $('[name=status]:checked', body);
+      const days = k => (f[k] || []).map(Number);
+      const data = { ...f, status: radio ? radio.value : 'use', amDays: days('amDays'), pmDays: days('pmDays'), tags: f.tags || [], openedAt: f.openedAt || null, ingredients: d.ingredients || '', barcode: d.barcode || '' };
       if (f.finished && !d.finished) data.finishedAt = today();
       if (!f.finished) data.finishedAt = null;
       if (f.price && !d.boughtAt) data.boughtAt = f.openedAt || today();
       p ? await saveItem(p, data) : await addItem('product', data);
       closeSheet(); toast('Guardado'); rerender();
     };
-    $('#del', body)?.addEventListener('click', async () => { if (await confirmBox(`Borrar "${d.name}"`)) { await deleteItem(p); rerender(); } });
+    $('#del', body)?.addEventListener('click', async () => { if (await confirmBox(`Se borrará "${d.name}".`)) { await deleteItem(p); rerender(); } });
   });
 }
 
@@ -490,19 +670,25 @@ function viaje(root) {
 
 // ------------------------------------------------------------------ GUÍA
 function guia(root, topic) {
-  const g = GUIDE.find(x => x.id === topic);
+  const mine = itemsOf('guide').map(i => i.data);
+  const g = mine.find(x => x.gid === topic) || GUIDE.find(x => x.id === topic);
   if (g) {
     root.innerHTML = `
       <a class="back" href="#/cuidado/guia">${icon('left')} Todos los temas</a>
       <div class="row gap mb"><span class="big-emoji">${g.icon}</span><h2 style="--c:${g.color};color:var(--c-ink)">${esc(g.title)}</h2></div>
       <div style="--c:${g.color}">${g.body.map(b => `<div class="tipcard">${b}</div>`).join('')}</div>
-      ${g.src.length ? `<div class="sources">Fuentes:${g.src.map(k => `<a href="${SOURCES[k].u}" target="_blank" rel="noopener">${esc(SOURCES[k].t)}</a>`).join('')}</div>` : ''}`;
+      ${g.src?.length ? `<div class="sources">Fuentes:${g.src.map(k => `<a href="${SOURCES[k].u}" target="_blank" rel="noopener">${esc(SOURCES[k].t)}</a>`).join('')}</div>` : ''}
+      ${g.gid ? '<p class="small muted mt">Parte de tu plan personal.</p>' : ''}`;
     return;
   }
+  const hidden = new Set(mine.map(x => x.replaces).filter(Boolean));
+  const tile = x => `<a class="guide-tile" href="#/cuidado/guia/${x.gid || x.id}" style="--c:${x.color}">
+      <span class="g-emoji">${x.icon}</span><b>${esc(x.title)}</b><span>${esc(x.lead)}</span></a>`;
   root.innerHTML = `
+    ${mine.length ? `<div class="section-head" style="margin-top:0"><h2>Tu plan personal</h2></div><div class="guide-grid">${mine.map(tile).join('')}</div>
+      <div class="section-head"><h2>Guía general</h2></div>` : ''}
     <p class="small muted">Basado en la Academia Americana de Dermatología, el NHS y las instrucciones de Philips. No sustituye a una consulta: si tienes brotes fuertes, irritación que no se va o dudas médicas, ve a tu dermatólogo.</p>
-    <div class="guide-grid mt">${GUIDE.map(x => `<a class="guide-tile" href="#/cuidado/guia/${x.id}" style="--c:${x.color}">
-      <span class="g-emoji">${x.icon}</span><b>${esc(x.title)}</b><span>${esc(x.lead)}</span></a>`).join('')}</div>`;
+    <div class="guide-grid mt">${GUIDE.filter(x => !hidden.has(x.id)).map(tile).join('')}</div>`;
 }
 
 // ------------------------------------------------------------------ TINTE

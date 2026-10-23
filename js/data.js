@@ -28,6 +28,7 @@ export const CATALOG = [
   { key: 'body_hydration', name: 'Hidratación corporal', icon: '🤍', type: 'bool', section: 'Cuidado' },
   { key: 'skin', name: 'Estado de la piel', icon: '🫧', type: 'scale', section: 'Cuidado' },
   { key: 'hair_wash', name: 'Lavado de pelo', icon: '🚿', type: 'bool', section: 'Cuidado' },
+  { key: 'lips', name: 'Labios: sin morder ni arrancar', icon: '👄', type: 'bool', section: 'Cuidado' },
   { key: 'shave', name: 'Afeitado / barba', icon: '🪒', type: 'bool', section: 'Cuidado' },
   { key: 'scalp', name: 'Cuidado del cuero cabelludo', icon: '💆', type: 'bool', section: 'Cuidado' },
 
@@ -92,6 +93,9 @@ export const CARE_CATALOG = [
   { key: 'hair_mask', group: 'pelo', name: 'Mascarilla hidratante de pelo', icon: '🌊', interval: 7 },
   { key: 'hair_oil', group: 'pelo', name: 'Aceite de puntas', icon: '💧', interval: 3 },
   { key: 'hair_cut', group: 'pelo', name: 'Sanear puntas (peluquería)', icon: '✂️', interval: 90 },
+  { key: 'deep_wash', group: 'pelo', name: 'Lavado a fondo (2 pasadas de champú)', icon: '🫧', interval: 7,
+    tip: 'Si usas gel a diario: quita los restos de producto una vez por semana.' },
+  { key: 'roller_wash', group: 'maquillaje', name: 'Lavar el rodillo matificante', icon: '🧽', interval: 7 },
   { key: 'brushes', group: 'maquillaje', name: 'Lavar brochas y esponjas', icon: '🖌️', interval: 7 },
   { key: 'nails', group: 'unas', name: 'Manicura limpia (casa o cita)', icon: '💅', interval: 14 },
   { key: 'dye_roots', group: 'tinte', name: 'Retoque de raíces', icon: '🎨', interval: 42,
@@ -161,6 +165,20 @@ export const SAMPLE_PERFUMES = [
   { name: 'Good Girl', brand: 'Carolina Herrera', family: 'Oriental floral', moments: ['Noche / Madrid', 'Eventos'], role: 'Signature' },
   { name: 'Cool de Saphir', brand: 'Saphir', family: 'Oriental floral', moments: ['Día a día limpio', 'Post-gym / fresco'], role: 'Diario / dupe', note: 'Dupe para el día a día, después del Box y para el neceser.' },
 ];
+
+// ---- Estados del inventario ----
+export const STATUS = {
+  keep: { e: '✅', l: 'Repongo', d: 'Me lo quedo y lo repongo', c: '#A8C99A' },
+  use: { e: '•', l: 'En uso', d: 'En uso, sin decidir', c: '#CFC7BE' },
+  useup: { e: '🟡', l: 'Gastar', d: 'Lo gasto y no lo recompro', c: '#F2CF7E' },
+  pause: { e: '⏸️', l: 'En pausa', d: 'En pausa (hasta que se curen los labios)', c: '#A7BCEB' },
+  drop: { e: '❌', l: 'Lo dejo', d: 'Lo dejo o lo tiro', c: '#EFA3AE' },
+  wish: { e: '🛒', l: 'Comprar', d: 'Por comprar', c: '#D3AEE6' },
+};
+export const AREAS = ['Cuidado facial', 'Maquillaje', 'Pelo', 'Cuerpo', 'Uñas', 'Otros'];
+export const MAKEUP_SUBS = ['Piel', 'Mejillas', 'Fijadores', 'Ojos', 'Cejas', 'Labios'];
+export const DOW_SHORT = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+export const LIP_TRIGGERS = [['ordenador', '💻 Ordenador'], ['coche', '🚗 Coche'], ['series', '📺 Series'], ['estres', '😬 Estrés'], ['aburrimiento', '🥱 Aburrimiento'], ['otro', '✳️ Otro']];
 
 export const PERFUME_MOMENTS = ['Día a día limpio', 'Post-gym / fresco', 'Noche / Madrid', 'Eventos', 'Verano'];
 
@@ -254,7 +272,7 @@ export const GUIDE = [
       'En piel mixta-grasa o con tendencia a granitos, lo recomendado es un exfoliante <b>químico suave</b> en vez de gránulos que rasquen.',
       'Tú <b>ya exfolias</b> con el limpiador de ácido salicílico (BHA), que entra en el poro. No añadas exfoliantes de gránulos en la cara.',
       'Más exfoliación no es mejor: si hay ardor, rojez o descamación, para unos días y solo hidrata.',
-      'Cuerpo: exfoliación suave 1–2 veces por semana ayuda a prevenir pelos encarnados. No exfolies una zona el mismo día que le haces IPL.',
+      'Cuerpo: exfoliación suave 1–2 veces por semana ayuda a prevenir pelos encarnados. Deja 48 h entre exfoliar una zona y hacerle IPL, antes y después: la app te avisa.',
     ],
     src: ['aad_exfol'],
   },
