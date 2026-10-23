@@ -180,7 +180,7 @@ export const STATUS = {
   wish: { e: '🛒', l: 'Comprar', d: 'Por comprar', c: '#D3AEE6' },
 };
 export const AREAS = ['Cuidado facial', 'Maquillaje', 'Pelo', 'Cuerpo', 'Uñas', 'Otros'];
-export const MAKEUP_SUBS = ['Piel', 'Mejillas', 'Fijadores', 'Ojos', 'Cejas', 'Labios'];
+export const MAKEUP_SUBS = ['Piel', 'Mejillas', 'Fijadores', 'Ojos', 'Cejas', 'Labios', 'Herramientas'];
 export const DOW_SHORT = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 export const LIP_TRIGGERS = [['ordenador', '💻 Ordenador'], ['coche', '🚗 Coche'], ['series', '📺 Series'], ['estres', '😬 Estrés'], ['aburrimiento', '🥱 Aburrimiento'], ['otro', '✳️ Otro']];
 
@@ -254,6 +254,10 @@ export const SOURCES = {
   aad_sun: { t: 'AAD · Errores comunes con el protector solar', u: 'https://www.aad.org/public/everyday-care/sun-protection/shade-clothing-sunscreen/common-sunscreen-mistakes' },
   aad_color: { t: 'AAD · Consejos para teñir el pelo', u: 'https://www.aad.org/public/everyday-care/hair-scalp-care/hair/coloring-perming-tips' },
   nhs_dye: { t: 'NHS · Reacciones al tinte', u: 'https://www.nhs.uk/conditions/hair-dye-reactions' },
+  aad_makeup: { t: 'AAD · ¿Puedo maquillarme si tengo acné?', u: 'https://www.aad.org/public/diseases/acne/causes/makeup' },
+  aad_habits: { t: 'AAD · 10 hábitos que pueden empeorar el acné', u: 'https://www.aad.org/public/diseases/acne/skin-care/habits-stop' },
+  cc_brushes: { t: 'Cleveland Clinic · Cada cuánto limpiar las brochas', u: 'https://health.clevelandclinic.org/cleaning-makeup-brushes' },
+  curology_pilling: { t: 'Curology · Por qué el maquillaje hace bolitas', u: 'https://curology.com/blog/3-reasons-your-cosmetics-are-pilling' },
   aad_acne: { t: 'AAD · Tratamiento del acné adulto', u: 'https://www.aad.org/public/diseases/acne/diy/adult-acne-treatment' },
 };
 

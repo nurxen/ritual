@@ -76,8 +76,9 @@ const DOW_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes
 let rDay = null;
 function stepHtml(p, slot) {
   const d = p.data; const wish = pStatus(p) === 'wish';
+  const tag = d.onlyIfMakeup ? ' <span class="pill accent">💄 si te has maquillado</span>' : d.optional ? ' <span class="pill">Opcional</span>' : '';
   const days = slot === 'pm' ? d.pmDays : d.amDays;
-  return `<li><span class="grow"><b>${esc(d.type || '')}</b>${wish ? ' <span class="pill accent">🛒 por comprar</span>' : ''}<br>
+  return `<li><span class="grow"><b>${esc(d.type || '')}</b>${tag}${wish ? ' <span class="pill accent">🛒 por comprar</span>' : ''}<br>
     ${esc(d.name)}${d.brand ? ` <span class="muted small">${esc(d.brand)}</span>` : ''}
     ${wish && d.meanwhile ? `<br><span class="small muted">Mientras tanto: ${esc(d.meanwhile)}</span>` : ''}
     ${Array.isArray(days) && days.length ? `<br><span class="small" style="color:var(--c-ink)">${days.length} ${slot === 'pm' ? 'noches' : 'días'} por semana</span>` : ''}
@@ -87,15 +88,23 @@ function rutinas(root) {
   const has = products().length > 0;
   const dow = rDay ?? new Date().getDay();
   const notes = settings().routineNotes || {};
+  const mode = settings().routineMode || 'completa';
+  const mkd = settings().makeupDay;
+  const madeUp = mkd?.day === today() ? !!mkd.on : null;
   const block = (slot, title, catKey) => {
-    const list = routineProducts(slot, dow);
+    const all = routineProducts(slot, dow);
+    const list = all.filter(p => !(mode === 'esencial' && p.data.optional) && !(slot === 'pm' && p.data.onlyIfMakeup && madeUp === false));
+    const hidden = all.length - list.length;
     const rules = checkRoutine(slot);
     const cat = catByKey(catKey);
     const done = cat && getVal(cat.id, today());
     return `<section class="card">
       <div class="row between"><h3>${title}</h3>${cat && rDay === null ? `<button class="btn tiny ${done ? 'primary' : 'ghost'}" data-done="${cat.id}">${done ? '✓ Hecha' : 'Marcar hecha'}</button>` : ''}</div>
       ${notes[slot] ? `<p class="small muted">${esc(notes[slot])}</p>` : ''}
+      ${slot === 'pm' && all.some(p => p.data.onlyIfMakeup) ? `<div class="chips mb"><span class="small" style="font-weight:700;align-self:center">¿Te has maquillado hoy?</span>
+        <button class="chip small ${madeUp === true ? 'on' : ''}" data-mk="1">💄 Sí</button><button class="chip small ${madeUp === false ? 'on' : ''}" data-mk="0">No</button></div>` : ''}
       ${list.length ? `<ol class="steps">${list.map(p => stepHtml(p, slot)).join('')}</ol>` : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
+      ${hidden ? `<p class="small muted">${hidden} paso${hidden > 1 ? 's' : ''} oculto${hidden > 1 ? 's' : ''}${mode === 'esencial' ? ' (opcionales)' : ''}${slot === 'pm' && madeUp === false ? ': sin maquillaje basta con una limpieza' : ''}.</p>` : ''}
       ${rules.length ? rules.map(r => `<p class="note ${r.level}">${r.level === 'warn' ? '⚠️' : 'ℹ️'} ${esc(r.msg)}</p>`).join('')
         : list.length ? '<p class="note ok">✓ Rutina compatible: sin combinaciones irritantes.</p>' : ''}
     </section>`;
@@ -106,6 +115,7 @@ function rutinas(root) {
   root.innerHTML = `
     ${!has ? `<div class="card empty"><p>Aún no tienes productos.</p>
       <button class="btn primary" id="loadSample">Cargar la lista de productos de ejemplo</button></div>` : ''}
+    <div class="seg">${[['completa', 'Completa'], ['esencial', 'Solo lo esencial']].map(([k, l]) => `<button class="${mode === k ? 'on' : ''}" data-mode="${k}">${l}</button>`).join('')}</div>
     <div class="chips rail mb">${order.map(n => `<button class="chip ${n === dow ? 'on' : ''}" data-dow="${n}">${n === new Date().getDay() ? 'Hoy' : DOW_LONG[n].slice(0, 3)}</button>`).join('')}</div>
     ${rDay !== null && rDay !== new Date().getDay() ? `<p class="small muted">Viendo la rutina del ${DOW_LONG[dow]}.</p>` : ''}
     ${block('am', '☀️ Mañana', 'am_routine')}
@@ -118,6 +128,11 @@ function rutinas(root) {
     <section class="card"><h3>🏋️ Protocolo post-Box</h3><ol class="steps">${POST_GYM_PROTOCOL.map(x => `<li>${esc(x)}</li>`).join('')}</ol></section>
     <p class="muted small center">Para cambiar el orden, los días o la rutina de un producto, edítalo en <a href="#/cuidado/inventario">Inventario</a>.</p>`;
   $('#loadSample', root)?.addEventListener('click', loadSamples);
+  $$('[data-mode]', root).forEach(b => b.onclick = async () => { await saveSettings({ routineMode: b.dataset.mode }); rerender(); });
+  $$('[data-mk]', root).forEach(b => b.onclick = async () => {
+    const on = b.dataset.mk === '1';
+    await saveSettings({ makeupDay: madeUp === on ? null : { day: today(), on } }); rerender();
+  });
   $$('[data-dow]', root).forEach(b => b.onclick = () => { const n = Number(b.dataset.dow); rDay = n === new Date().getDay() ? null : n; rerender(); });
   $$('[data-done]', root).forEach(b => b.onclick = async () => {
     const id = b.dataset.done; await setVal(id, !getVal(id, today()), today()); rerender();

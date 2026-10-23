@@ -13,17 +13,17 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 2,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Pelo corregido (la mascarilla amarilla es la Banana; ya tienes leave-in, gel y mousse), desmaquillado, cuerpo, protocolo IPL, labiales líquidos y ojos.',
+  version: 3,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Rutina con modo esencial y doble limpieza solo si te maquillas; tus esponjas, triángulos y brochas en el inventario; guía de maquillaje y herramientas; cuándo ponerte la mascarilla hidratante.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
 
   products: [
     // ---------------- Cuidado facial ----------------
-    { match: 'anua', name: 'Heartleaf Pore Control Cleansing Oil', brand: 'Anua', type: 'Aceite limpiador', area: 'Cuidado facial',
+    { match: 'anua', name: 'Heartleaf Pore Control Cleansing Oil', brand: 'Anua', type: 'Aceite limpiador', area: 'Cuidado facial', onlyIfMakeup: true,
       status: 'wish', price: 12.98, store: 'Stylevana', slot: 'pm', step: 1, meanwhile: 'agua micelar (Yves Rocher o Deliplus), aclarándola después con el limpiador',
-      note: 'Masajea 1 minuto, insistiendo en la nariz: disuelve el sebo de los poros. Primer paso de la doble limpieza.' },
+      note: 'Solo las noches que te hayas maquillado (o lleves protector resistente al agua): masajea 1 minuto en seco, insistiendo en la nariz, y aclara. Después, tu espuma.' },
     { match: 's[ée]bium|bioderma', name: 'Sébium Gel Moussant', brand: 'Bioderma', type: 'Limpiador', area: 'Cuidado facial',
       status: 'keep', slot: 'both', step: 1, stepPm: 2, pmDays: [2, 4, 6],
       note: 'Mañana: limpieza suave (o solo agua si anoche hiciste doble limpieza). Noche: segunda limpieza los días sin CeraVe. Vuelve a comprarlo.' },
@@ -35,13 +35,13 @@ export const PLANS = [{
       note: '2–3 capas por la mañana, o lotion pack si te vas a maquillar. Sustituye a la Keana.' },
     { match: 'keana', name: 'Tónico de arroz', brand: 'Keana', type: 'Tónico', area: 'Cuidado facial',
       status: 'useup', slot: 'none', note: 'Guárdala para eventos.' },
-    { match: 'glow.*(lifting|niacin)|deliplus.*glow', name: 'Sérum Glow niacinamida y platino', brand: 'Deliplus', type: 'Sérum', area: 'Cuidado facial',
+    { match: 'glow.*(lifting|niacin)|deliplus.*glow', name: 'Sérum Glow niacinamida y platino', brand: 'Deliplus', type: 'Sérum', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'am', step: 3, tags: ['niacinamide'],
       note: 'Por las mañanas, después del tónico, hasta acabarlo. Es tu única niacinamida de día. No hace falta recomprarlo.' },
-    { match: 'niacinamide 10|ordinary', name: 'Niacinamide 10% + Zinc 1%', brand: 'The Ordinary', type: 'Sérum', area: 'Cuidado facial',
+    { match: 'niacinamide 10|ordinary', name: 'Niacinamide 10% + Zinc 1%', brand: 'The Ordinary', type: 'Sérum', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'pm', step: 4, pmDays: [2, 4], tags: ['niacinamide'],
       note: 'Solo en la zona T, 2–3 noches por semana (martes y jueves). También en espalda o pecho si salen granitos por el sudor. No lo recompres.' },
-    { match: 'filler|revitalift', name: 'Revitalift Filler contorno de ojos', brand: "L'Oréal Paris", type: 'Contorno de ojos', area: 'Cuidado facial',
+    { match: 'filler|revitalift', name: 'Revitalift Filler contorno de ojos', brand: "L'Oréal Paris", type: 'Contorno de ojos', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'am', step: 4, tags: ['hyaluronic'],
       note: 'En la ojera, a toquecitos y poca cantidad, hasta que se acabe.' },
     { match: 'hydro boost', name: 'Hydro Boost Water Gel', brand: 'Neutrogena', type: 'Hidratante', area: 'Cuidado facial',
@@ -80,7 +80,7 @@ export const PLANS = [{
       status: 'keep', replaceWith: 'Polvo translúcido suelto', note: 'Solo en la nariz y la zona T.' },
     { match: 'mattifying compact', name: 'Mattifying Compact', brand: 'Essence', type: 'Polvos compactos', area: L, sub: 'Piel',
       status: 'drop', note: 'Sobra con el translúcido: los compactos acumulan producto y marcan los poros.' },
-    { match: 'rodillo|roller', name: 'Rodillo para absorber grasa', brand: 'Revlon', type: 'Herramienta', area: L, sub: 'Piel',
+    { match: 'rodillo|roller', name: 'Rodillo para absorber grasa', brand: 'Revlon', type: 'Herramienta', area: L, sub: 'Herramientas',
       status: 'keep', pao: null, note: 'Para retocar la zona T después del CrossFit sin añadir producto. Lávalo cada semana.' },
 
     // ---------------- Maquillaje · Mejillas ----------------
@@ -120,11 +120,21 @@ export const PLANS = [{
       status: 'keep', pao: 6, note: 'Un eyeliner muy bueno. Los líquidos se secan a los 3–6 meses.' },
     { match: 'eyeliner.*(waterproof|deliplus)|deliplus.*eyeliner', name: 'Eyeliner waterproof', brand: 'Deliplus', type: 'Eyeliner', area: L, sub: 'Ojos',
       status: 'useup', pao: 6, note: 'Si lo usas, gástalo; si no, fuera. Los líquidos se secan a los 3–6 meses.' },
-    { match: 'esponja', name: 'Esponja de maquillaje negra', brand: '', type: 'Herramienta', area: L, sub: 'Piel',
+    { match: 'esponja.*negra', name: 'Esponja de maquillaje negra', brand: '', type: 'Herramienta', area: L, sub: 'Herramientas',
       status: 'keep', pao: 3, note: 'Lávala cada semana y cámbiala cada 3 meses (la app te lo recuerda).' },
+    { match: 'esponjas? grandes?|beauty blender.*grande', name: 'Esponjas grandes (beauty blender)', brand: 'SHEIN', type: 'Herramienta', area: L, sub: 'Herramientas',
+      status: 'keep', pao: 3, note: 'Húmeda (mojada y bien escurrida), a toques: skin tint y colorete en crema. Una en uso; las demás, de recambio. No compres más.' },
+    { match: 'esponjas? peque|beauty blender.*peque', name: 'Esponjas pequeñas', brand: 'SHEIN', type: 'Herramienta', area: L, sub: 'Herramientas',
+      status: 'keep', pao: 3, note: 'Húmeda, para el corrector en la ojera y las aletas de la nariz. Una en uso; las demás, de recambio.' },
+    { match: 'tri[aá]ngulos?.*grande|puff.*grande', name: 'Triángulos grandes para polvos (morados)', brand: '', type: 'Herramienta', area: L, sub: 'Herramientas',
+      status: 'keep', pao: null, note: 'Polvo translúcido en la zona T: presiona y rueda, sin arrastrar. Lávalos cada semana y sécalos bien.' },
+    { match: 'tri[aá]ngulos?.*peque|puff.*peque', name: 'Triángulos pequeños para polvos', brand: '', type: 'Herramienta', area: L, sub: 'Herramientas',
+      status: 'keep', pao: null, note: 'Para la nariz y la barbilla. Nunca polvos en la ojera.' },
+    { match: 'brochas', name: 'Brochas', brand: '', type: 'Herramienta', area: L, sub: 'Herramientas',
+      status: 'keep', pao: null, note: 'Solo para productos en polvo: la grande y esponjosa para polvo o colorete en polvo, la pequeña para el iluminador, las de ojos para sombras. Si se separan de la madera, una gota de pegamento instantáneo en la junta y 24 h de secado. Lávalas con las cerdas hacia abajo y sécalas en plano. Si pierden pelo o se deforman, cámbialas.' },
     { match: 'heroine', name: 'Speedy Mascara Remover (tubo azul)', brand: 'Heroine Make', type: 'Desmaquillante', area: L, sub: 'Ojos',
       status: 'keep', note: 'Si es el desmaquillante de máscara, quédatelo. Si un día quieres una máscara que aguante el sudor del CrossFit, la de tubing de esta marca es de las mejores.' },
-    { match: 'beter|rizapesta', name: 'Rizapestañas Triple Curl', brand: 'Beter', type: 'Herramienta', area: L, sub: 'Ojos',
+    { match: 'beter|rizapesta', name: 'Rizapestañas Triple Curl', brand: 'Beter', type: 'Herramienta', area: L, sub: 'Herramientas',
       status: 'wish', store: 'Primor', pao: null, note: 'Riza antes de la máscara, nunca después.' },
 
     // ---------------- Maquillaje · Cejas ----------------
@@ -218,7 +228,7 @@ export const PLANS = [{
       status: 'useup', note: 'Primer paso de la doble limpieza hasta que llegue el aceite Anua, siempre aclarando después con el limpiador. Luego guarda una de las dos micelares solo para los ojos. No la recompres.' },
     { match: 't[oó]nico.*clean|clean.*t[oó]nico', name: 'Tónico Facial Clean', brand: 'Deliplus', type: 'Tónico', area: 'Cuidado facial',
       status: 'use', note: 'Mira la etiqueta: si NO lleva alcohol denat. entre los primeros ingredientes, úsalo para la lotion pack hasta que llegue el de Beauty of Joseon. Si lo lleva, úsalo en cuello y escote, o déjalo.' },
-    { match: 'elizabeth arden|muestras', name: 'Muestras', brand: 'Elizabeth Arden', type: 'Sérum', area: 'Cuidado facial',
+    { match: 'elizabeth arden|muestras', name: 'Muestras', brand: 'Elizabeth Arden', type: 'Sérum', area: 'Cuidado facial', optional: true,
       status: 'useup', slot: 'pm', step: 5, note: 'Úsalas de noche antes de la crema hasta gastarlas.' },
 
     // ---------------- Cuerpo y perfume ----------------
@@ -275,9 +285,11 @@ export const PLANS = [{
   ],
 
   cats: ['lips'],
-  care: ['deep_wash', 'roller_wash', 'body_scrub', 'hairbrush_clean', 'sponge_replace'],
+  care: ['deep_wash', 'roller_wash', 'body_scrub', 'hairbrush_clean', 'sponge_replace', 'brushes'],
   careUpdates: {
     body_scrub: { interval: 4, tip: '1–2 veces por semana. Nunca 48 h antes ni después de una sesión de IPL.' },
+    face_mask: { tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
+    brushes: { name: 'Lavar brochas, esponjas y triángulos', interval: 7, tip: 'Esponjas, triángulos y brochas de base o corrector: cada semana. Brochas de ojos: cada 2 semanas. Brochas de polvo: al menos una vez al mes. Champú suave y secar en plano, cerdas colgando del borde.' },
   },
   tasks: [
     { title: 'Revisar máscaras (tirar si llevan +3–6 meses abiertas) y glosses (+1 año)', prio: 'urgente', est: 10, dueToday: true },
@@ -288,11 +300,13 @@ export const PLANS = [{
     { title: 'Mirar la fecha de apertura del Ecran SPF 50 (si pasa de un año, cambiarlo)', prio: 'pequena', est: 2 },
     { title: 'Tirar las gomas con grapa metálica', prio: 'pequena', est: 2 },
     { title: 'Repartir cremas mini: bolso, bolsa del gimnasio y casa', prio: 'pequena', est: 5 },
+    { title: 'Pegar las brochas que se separan de la madera (gota de pegamento instantáneo, 24 h)', prio: 'pequena', est: 10 },
+    { title: 'Elegir 1 esponja grande, 1 pequeña y 1 triángulo en uso; guardar el resto de recambio', prio: 'pequena', est: 5 },
   ],
   settings: { lips: { start: 'today', cured: false } },
   routineNotes: {
     am: 'Si anoche hiciste doble limpieza, por la mañana basta con agua. Lotion pack si te vas a maquillar.',
-    pm: 'Si entrenas justo antes de la rutina de noche, esa limpieza ya cuenta.',
+    pm: 'Doble limpieza solo si te has maquillado o llevas un protector resistente al agua. Si no, con una limpieza basta. Si entrenas justo antes, esa limpieza ya cuenta.',
   },
 
   // Guía personal (solo para este perfil)
@@ -315,14 +329,17 @@ export const PLANS = [{
       ],
     },
     {
-      gid: 'p-rutina', replaces: 'rutina', icon: '🫧', color: '#F2A9BC', title: 'Tu rutina nueva', lead: 'Mañana en 4–5 pasos y noche con doble limpieza.',
+      gid: 'p-rutina', replaces: 'rutina', icon: '🫧', color: '#F2A9BC', title: 'Tu rutina', lead: 'Lo esencial, lo opcional y cuándo hacer doble limpieza.',
       body: [
-        '<b>Mañana:</b> 1) Bioderma suave, o solo agua si anoche hiciste doble limpieza. 2) Tónico de arroz en 2–3 capas, o lotion pack si te vas a maquillar. 3) Sérum Glow de niacinamida hasta acabarlo. 4) Contorno en la ojera, a toquecitos y poca cantidad. 5) Hidratante ligera (Hydro Boost hasta que se acabe). 6) Relief Sun.',
-        '<b>Noche:</b> 1) Aceite Anua, masajeando 1 minuto con insistencia en la nariz. 2) Bioderma, o CeraVe salicílico 3–4 noches por semana. 3) Tónico de arroz. 4) Niacinamida The Ordinary solo en zona T, 2–3 noches. 5) Crema: la Vichy hasta que se acabe y después la Purito, también un poco en la ojera. 6) Vaselina en labios.',
-        'En Rutinas verás qué toca cada noche de la semana, para no tener que acordarte.',
-        '<b>Plan para gastar lo que ya tienes:</b> Bioderma (recompra) · CeraVe 3–4 noches · Deliplus Glow por las mañanas, sin recomprar · The Ordinary solo zona T, sin recomprar · Filler como contorno hasta acabarlo · Hydro Boost → Purito Oat-in · Vichy → Purito Bamboo · Protector Deliplus en cuello, manos y cuerpo · Keana para eventos.',
-        'Si entrenas por la tarde, lávate la cara nada más terminar. Si entrenas justo antes de la rutina de noche, esa limpieza ya cuenta.',
+        '<b>Tu rutina definitiva</b> (cuando gastes lo que no vas a reponer): <b>mañana</b> limpiador, tónico, hidratante y protector solar. <b>Noche</b> limpieza (doble si te has maquillado), tónico, hidratante y vaselina en los labios.',
+        '<b>Mientras tanto</b>, los productos que estás gastando (sérum Glow, contorno Filler, muestras, The Ordinary) salen como “Opcional”. Úsalos si te apetece, pero no son imprescindibles. En Rutinas puedes cambiar a “Esencial” los días con prisa.',
+        '<b>Doble limpieza solo si te has maquillado</b> o llevas un protector resistente al agua: aceite o micelar primero, y después tu espuma. <b>Sin maquillaje, con una limpieza basta</b>: limpiar dos veces sin necesidad puede resecar.',
+        'Opcional sin maquillaje: si notas mucho sebo en la nariz, masajea el aceite solo en esa zona 1 minuto un par de noches por semana.',
+        '<b>¿Tantos pasos obstruyen?</b> No por el número de pasos. Lo que da granitos es usar productos grasos o comedogénicos, dormir con maquillaje y las brochas o esponjas sucias. Busca “oil-free” o “no comedogénico”, y da a cada producto 6–8 semanas antes de juzgarlo.',
+        '<b>Para que la base no haga bolitas:</b> poca cantidad de cada producto (menos el protector), espera unos minutos tras el protector y aplica a toques, sin arrastrar.',
+        'CeraVe salicílico 3–4 noches por semana; las otras noches, Bioderma. Si entrenas por la tarde, lávate la cara nada más terminar.',
       ],
+      src: ['aad_makeup', 'aad_habits'],
     },
     {
       gid: 'p-lotion', icon: '💧', color: '#A7BCEB', title: 'Lotion pack', lead: 'La mascarilla japonesa con tu tónico.',
@@ -338,7 +355,7 @@ export const PLANS = [{
       gid: 'p-ojera', icon: '👁️', color: '#BDB2F0', title: 'Ojera y nariz', lead: 'Los dos puntos que más te preocupan.',
       body: [
         '<b>Ojera:</b> tónico y, antes del corrector, una capa mínima de crema Purito. Espera 3 minutos. Aplica poco corrector, con el dedo o una esponja húmeda, y <b>nunca pongas polvos en esa zona</b>.',
-        '<b>Nariz:</b> cada noche, aceite Anua masajeado; 3–4 noches por semana, salicílico. Por la mañana, lotion pack.',
+        '<b>Nariz:</b> las noches que te maquilles, aceite Anua masajeado 1 minuto (y, si notas mucho sebo, un par de noches más solo en la nariz); 3–4 noches por semana, salicílico. Por la mañana, lotion pack si te vas a maquillar.',
         'La base, en capas finas y presionando, nunca arrastrando. El polvo translúcido, solo en la nariz y la zona T.',
         'Después del CrossFit, retoca la zona T con el rodillo Revlon en vez de añadir producto.',
       ],
@@ -383,6 +400,32 @@ export const PLANS = [{
         'Good Girl: la recarga sale más barata. Carolina Herrera para la noche y la equivalencia de Saphir después del CrossFit.',
         '<b>Cremas de manos:</b> tienes 5 o más mini. Reparte una en el bolso, otra en la bolsa del gimnasio y otra en casa, y no compres más (tampoco la Pokhara).',
         'Parches Iroha para granos: muy recomendables, y te impiden tocarte el grano.',
+      ],
+    },
+    {
+      gid: 'p-herramientas', icon: '🖌️', color: '#EFA3AE', title: 'Maquillaje y herramientas', lead: 'Para qué sirve cada esponja, triángulo y brocha.',
+      body: [
+        '<b>Esponja grande, húmeda</b> (mojada y bien escurrida): skin tint y colorete en crema, a toques.',
+        '<b>Esponja pequeña o la punta, húmeda:</b> corrector en la ojera y en las aletas de la nariz.',
+        '<b>Triángulos morados:</b> polvo translúcido, presionando y rodando. El grande para la zona T y el pequeño para nariz y barbilla. En la ojera, nunca polvos.',
+        '<b>Brochas:</b> solo para polvos. La grande y esponjosa para polvo o colorete en polvo, la pequeña para el iluminador en lo alto del pómulo, las de ojos para sombras. Corrector, colorete en crema y Multi Tasker, mejor con los dedos o la esponja.',
+        '<b>En uso, solo una esponja grande, una pequeña y un triángulo.</b> El resto, de recambio. No compres más.',
+        '<b>Limpieza:</b> esponjas, triángulos y brochas de base o corrector cada semana; brochas de ojos cada 2 semanas; brochas de polvo al menos una vez al mes. Champú suave y secar en plano con las cerdas colgando del borde, nunca de pie. Esponjas: cámbialas cada 3 meses o antes si se rompen o huelen.',
+        '<b>Brochas que se separan de la madera:</b> entra agua en la unión al lavarlas o secarlas de pie. Una gota de pegamento instantáneo en la junta, aprieta y deja secar 24 h. Si pierden pelo o se deforman, cámbialas.',
+        '<b>El spray antes de la base:</b> suele ser una bruma hidratante (agua y glicerina) que humedece la piel para que la base se funda. No es imprescindible: la esponja húmeda hace lo mismo. Tu Revuele Fix Line Dewy sirve como bruma antes o después, y el Kosé Make Keep Mist es el fijador del final.',
+        '<b>Clean girl en 5 minutos:</b> 1) protector solar y espera mientras te peinas, 2) corrector solo donde haga falta, 3) skin tint en el centro de la cara si quieres, 4) colorete en crema y Multi Tasker con los dedos, 5) cejas y máscara, 6) polvo solo en la nariz con el triángulo, 7) Kosé para fijar.',
+        '<b>Pocas cosas buenas:</b> caro no significa mejor (Bioderma, CeraVe o Mercadona son muy buenos). Invierte en lo que usas a diario y en herramientas que duren. Si entra uno, sale otro, y antes de comprar pregúntate qué hace que no haga algo que ya tienes.',
+      ],
+      src: ['aad_makeup', 'cc_brushes', 'curology_pilling'],
+    },
+    {
+      gid: 'p-mascarilla', icon: '🫧', color: '#A7BCEB', title: 'Mascarilla hidratante', lead: 'Cuándo ponerla en una semana normal y antes de un evento.',
+      body: [
+        '<b>En qué paso:</b> siempre sobre la piel limpia, después del tónico y antes de la hidratante. Si es de aclarar, retírala y sigue con la crema. Si es de tela, quita la tela, extiende con toquecitos lo que sobre y pon la crema encima para sellar.',
+        '<b>Semana normal:</b> de noche, una o dos veces por semana (por ejemplo, el domingo). Por la noche tienes tiempo, no hay maquillaje encima y la piel se recupera mientras duermes. La app te lo recuerda en Calendarios.',
+        '<b>Antes de un evento:</b> la noche anterior o esa misma mañana, unas horas antes de maquillarte. Después, hidratante y protector solar si es de día, y espera unos minutos antes de la base. La lotion pack con tu tónico funciona igual de bien y es más rápida.',
+        '<b>Nunca estrenes una mascarilla el día de un evento:</b> pruébala antes un día normal, por si te irrita.',
+        'No la juntes el mismo día con exfoliante, ni en la cara el día del IPL de cara. Y no hace falta más tiempo del que pone el envase: si se seca sobre la piel, empieza a quitar agua en vez de darla.',
       ],
     },
     {
