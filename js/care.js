@@ -829,7 +829,9 @@ function looks(root) {
 const USE_ML = { 'Limpiador': 1.5, 'Sérum': 0.5, 'Hidratante': 1, 'Protector solar': 1.5, 'Contorno de ojos': 0.2, 'Crema de noche': 1, 'Oclusivo': 0.5, 'Corporal': 5, 'Pelo': 3, 'Tónico': 2 };
 let tripDays = 3;
 function viaje(root) {
-  const list = products().filter(p => !p.data.finished);
+  const all = products().filter(p => !p.data.finished);
+  const samples = all.filter(p => p.data.sample);
+  const list = all.filter(p => !p.data.sample);
   const perfs = itemsOf('perfume');
   const extras = ['Cepillo y peine', 'Gomas sin metal / scrunchie', 'Difusor', 'Discos desmaquillantes', 'Bálsamo labial', 'Cuchilla', 'Cepillo de dientes y pasta', 'Retenedores y su caja', 'Suplementos (creatina, magnesio, colágeno)'];
   const est = p => {
@@ -843,6 +845,10 @@ function viaje(root) {
     <section class="card"><h3>Modo neceser</h3>
       <div class="row gap center"><span>Me voy</span><input type="number" class="input num" id="tripDays" value="${tripDays}" min="1"><span>días</span></div>
       <p class="small muted">Lista con todo lo que usas, y cuánto rellenar en botes de viaje (con un 20% de margen).</p></section>
+    ${samples.length ? `<div class="section-head"><h2>Muestras: ya en tamaño viaje</h2></div>
+    <div class="card list">${samples.map(p => `<label class="check-row"><input type="checkbox"><span class="grow">${esc(p.data.name)} <span class="small muted">· ${esc(p.data.brand || '')}</span><br><span class="small muted">${esc((p.data.note || '').split('. ')[0])}.</span></span></label>`).join('')}</div>
+    <p class="small muted">Si las llevas, deja en casa el bote grande de lo mismo.</p>
+    <div class="section-head"><h2>Lo de siempre</h2></div>` : ''}
     <div class="card list" id="tripList">
       ${list.map(p => `<label class="check-row"><input type="checkbox"><span class="grow">${esc(p.data.name)}<br>${est(p)}</span></label>`).join('')}
       ${perfs.map(p => `<label class="check-row"><input type="checkbox"><span class="grow">Perfume · ${esc(p.data.name)}${(p.data.role || '').includes('dupe') ? ' <span class="small muted">(el ideal para viajar)</span>' : ''}</span></label>`).join('')}
@@ -851,7 +857,7 @@ function viaje(root) {
     <button class="btn ghost block mt" id="copyTrip">${icon('copy')} Copiar lista</button>`;
   $('#tripDays', root).onchange = e => { tripDays = Math.max(1, Number(e.target.value) || 1); rerender(); };
   $('#copyTrip', root).onclick = async () => {
-    const txt = $$('#tripList .check-row', root).map(r => '☐ ' + r.innerText.replace(/\n/g, ' ')).join('\n');
+    const txt = $$('.check-row', root).map(r => '☐ ' + r.innerText.replace(/\n/g, ' ')).join('\n');
     try { await navigator.clipboard.writeText(`Neceser · ${tripDays} días\n${txt}`); toast('Lista copiada'); } catch { toast('No se pudo copiar'); }
   };
 }
