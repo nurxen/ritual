@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 6,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Plan para tu graduación con fechas, tus entrenos, tus perfumes y brumas ordenados, el regenerador Eucerin, el aceite seco y los discos de Muji, y un tema nuevo sobre poros y puntos negros.',
+  version: 7,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'La app coloca sola el IPL, la prueba de piel, el rasurado y el exfoliante según tus entrenos y los días que sales, sin solapes, y te dice por qué y cuánto esperar.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -426,12 +426,9 @@ export const PLANS = [{
     { title: 'Pegar las brochas que se separan de la madera (gota de pegamento instantáneo, 24 h)', prio: 'pequena', est: 10 },
     { title: 'Elegir 1 esponja grande, 1 pequeña y 1 triángulo en uso; guardar el resto de recambio', prio: 'pequena', est: 5 },
     // Graduación (6 de noviembre)
-    { since: 6, due: '2026-10-30', prio: 'importante', est: 5, title: '🎓 IPL: prueba de piel en las zonas que vayas a tratar (viernes, sin entreno)' },
-    { since: 6, due: '2026-11-01', prio: 'importante', est: 30, title: '🎓 IPL: primera sesión por la noche, después del ensayo (domingo: ni entreno ese día ni el lunes). Después, LV Perusvoide y 24 h sin desodorante ni perfume en la zona' },
     { since: 6, due: '2026-10-31', prio: 'importante', est: 60, title: '🎓 Peluquería: sanear puntas' },
     { since: 6, due: '2026-11-01', prio: 'importante', est: 45, title: '🎓 Ensayo de maquillaje completo, con fotos con flash y con luz natural' },
     { since: 6, due: '2026-11-03', prio: 'pequena', est: 15, title: '🎓 Cejas (con días para que baje la rojez)' },
-    { since: 6, due: '2026-11-03', prio: 'pequena', est: 10, title: '🎓 Exfoliante corporal por la noche (ya han pasado 48 h desde el IPL)' },
     { since: 6, due: '2026-11-04', prio: 'pequena', est: 40, title: '🎓 Manicura' },
     { since: 6, due: '2026-11-05', prio: 'importante', est: 20, title: '🎓 Lavado a fondo del pelo y mascarilla' },
     { since: 6, due: '2026-11-05', prio: 'importante', est: 30, title: '🎓 Noche antes: mascarilla Keana, rasurar, LV Perusvoide, Eucerin en los labios y a dormir pronto' },
@@ -439,6 +436,9 @@ export const PLANS = [{
     { since: 6, due: '2026-11-07', prio: 'pequena', est: 5, title: 'Empezar lo de Stylevana, de uno en uno (primero el aceite Anua)' },
   ],
   settings: { lips: { start: 'today', cured: false } },
+  // Tareas de versiones anteriores que ahora coloca la app (se borran si no están hechas)
+  taskRemove: ['🎓 IPL: prueba de piel', '🎓 IPL: primera sesión', '🎓 Exfoliante corporal'],
+  outDays: [5, 6, 0],
   // Se añaden solo si aún no los tienes (luego los cambias en tu perfil)
   training: [{ dow: 2, time: '09:15', min: 60 }, { dow: 3, time: '09:15', min: 60 }, { dow: 4, time: '09:15', min: 60 }, { dow: 6, time: '10:00', min: 60 }],
   events: [{ id: 'graduacion-2026', title: 'Graduación', date: '2026-11-06', icon: '🎓', note: 'Hasta entonces, nada nuevo en la cara.' }],

@@ -3,7 +3,7 @@ import {
   S, itemsOf, addItem, saveItem, deleteItem, careStatus, markCareDone, iplBlock, lastWorkout, products,
   productExpiry, routineProducts, checkRoutine, tagsFromIngredients, settings, saveSettings, catByKey, getVal, setVal,
   pStatus, pArea, shoppingList, refillBought, refillSkip, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
-  training, trainingOn, iplDays,
+  training, trainingOn, iplDays, bodyPlan, outDays,
 } from './store.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
 import {
@@ -160,7 +160,8 @@ function weekGrid(rot, order) {
   const t = today();
   const days = Array.from({ length: 7 }, (_, i) => addDays(t, i));
   const dowOf = d => new Date(d + 'T12:00').getDay();
-  const weekly = itemsOf('care').filter(i => i.data.group !== 'ipl' && i.data.last && Number(i.data.interval) <= 14 && ['piel', 'pelo', 'cuerpo'].includes(i.data.group));
+  const bp = bodyPlan();
+  const weekly = itemsOf('care').filter(i => i.data.group !== 'ipl' && !(i.data.key === 'body_scrub' && bp.scrubs.length) && i.data.last && Number(i.data.interval) <= 14 && ['piel', 'pelo', 'cuerpo'].includes(i.data.group));
   const careDays = it => {
     const st = careStatus(it); const out = new Set();
     let d = st.next < t ? t : st.next;
@@ -178,12 +179,26 @@ function weekGrid(rot, order) {
     <div class="wk-grid">${head}
       ${rot.length ? `<span class="wk-sec">Noches</span>` : ''}
       ${rot.map(p => label(esc(short(p.data.brand || p.data.name)), pStatus(p) === 'wish' ? '🛒 cuando llegue' : '') + days.map(d => cell(p.data.pmDays.includes(dowOf(d)), 'var(--c)', d === t)).join('')).join('')}
-      ${tr.length ? `<span class="wk-sec">Entreno</span>${label('🏋️ Entreno', tr.length ? [...new Set(tr.map(x => x.time))].join(' / ') : '')}${days.map(d => cell(!!trainingOn(d), '#9CCFB5', d === t)).join('')}` : ''}
+      <span class="wk-sec">Cuerpo y depilación</span>
+      ${tr.length ? `${label('🏋️ Entreno', [...new Set(tr.map(x => x.time))].join(' / '))}${days.map(d => cell(!!trainingOn(d), '#9CCFB5', d === t)).join('')}` : ''}
+      ${outDays().length ? `${label('🥂 Salir')}${days.map(d => cell(outDays().includes(dowOf(d)), '#E8C979', d === t)).join('')}` : ''}
+      ${[['shave', '🪒 Rasurar', '#EDC2A8'], ['ipltest', '🧪 Prueba IPL', '#D3AEE6'], ['ipl', '✨ IPL', '#B78FD6'], ['scrub', '🧽 Exfoliar', '#E9A98A']].filter(([k]) => bp.items.some(e => e.kind === k && e.day <= days[6])).map(([k, l, col]) => label(l, k === 'ipl' ? (bp.items.find(e => e.kind === k)?.time ? 'noche' : '') : '') + days.map(d => cell(bp.items.some(e => e.kind === k && e.day === d), col, d === t)).join('')).join('')}
       ${weekly.length ? `<span class="wk-sec">Cuidados</span>` : ''}
       ${weekly.map(it => { const ds = careDays(it); return label(`${esc(it.data.icon || '')} ${esc(short(it.data.name))}`) + days.map(d => cell(ds.has(d), CARE_GROUP_COLORS[it.data.group] || 'var(--c)', d === t)).join(''); }).join('')}
     </div>
+    ${bodyWhy(bp, days[6])}
     ${coming.length ? `<p class="small muted mt-s">Se incorporan cuando lleguen: ${coming.map(p => `<b>${esc(p.data.brand || p.data.name)}</b> ${p.data.onlyIfMakeup ? '(noches que te maquilles)' : '(cada noche)'}`).join(', ')}.</p>` : ''}
     <p class="small muted">Los cuidados se recolocan solos según el día que los marques como hechos.</p></section>`;
+}
+
+// Lista con el porqué de cada día del cuerpo
+const DOWN = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const dayLbl = d => d === today() ? 'Hoy' : d === addDays(today(), 1) ? 'Mañana' : `${DOWN[new Date(d + 'T12:00').getDay()]} ${Number(d.slice(8))}/${Number(d.slice(5, 7))}`;
+function bodyWhy(bp, until) {
+  const list = bp.items.filter(e => e.day <= until);
+  if (!list.length) return '';
+  return `<details class="why mt-s"><summary class="small"><b>Por qué estos días</b></summary><ul class="tips small">${list.map(e => `<li><b>${dayLbl(e.day)} · ${e.icon} ${esc(e.title)}${e.time ? ` · desde las ${e.time}` : ''} · ${e.min} min.</b> ${esc(e.why)}</li>`).join('')}</ul>
+    <p class="small muted">Reglas: IPL 12 h después de entrenar; después, 24 h sin sudar ni desodorante o perfume en la zona; exfoliante nunca 48 h antes ni después del IPL; rasurar la víspera. Si cambias tus entrenos o tus días de salir (Mi perfil), todo se recoloca solo.</p></details>`;
 }
 
 // ------------------------------------------------------------------ LABIOS
@@ -287,6 +302,10 @@ function ipl(root) {
       ${lw ? `<p class="small">Último entreno registrado: ${lw.toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
     </section>
 
+    ${(() => { const s1 = bodyPlan().items.filter(e => ['ipl', 'ipltest', 'shave'].includes(e.kind)).slice(0, 4); return s1.length ? `<section class="card">
+      <h3>Tu plan</h3>
+      <div class="list">${s1.map(e => `<div class="plan-row"><b>${dayLbl(e.day)}${e.time ? ` · ${e.time}` : ''}</b><span>${e.icon} ${esc(e.title)} · ${e.min} min</span><span class="small muted">${esc(e.why)}</span></div>`).join('')}</div>
+    </section>` : ''; })()}
     ${training().length ? `<section class="card">
       <h3>Tus mejores noches para IPL</h3>
       <div class="ipl-days">${iplDays(7).map(d => `<span class="ipl-day ${d.level}"><b>${d.day === today() ? 'Hoy' : DOW_SHORT[new Date(d.day + 'T12:00').getDay()]}</b><small>${d.day.slice(8)}</small>${d.train ? `<small>🏋️ ${esc(d.train.time || '')}</small>` : '<small>—</small>'}</span>`).join('')}</div>
@@ -302,7 +321,7 @@ function ipl(root) {
         <li><b>Después:</b> crema sin perfume. 24 h sin desodorante, perfume ni bruma en la zona; 48 h sin exfoliante; SPF si va al sol.</li>
         <li><b>Sol:</b> protege las zonas tratadas, sobre todo las primeras 48 h.</li>
       </ul>
-      ${nextDue ? `<p class="small">Próxima sesión: <b>${nextDue.next <= today() ? 'ya toca' : fmtShort(nextDue.next)}</b></p>` : ''}
+      ${(() => { const n = bodyPlan().items.find(e => e.kind === 'ipl'); return n ? `<p class="small">Próxima sesión: <b>${dayLbl(n.day)} a las ${n.time}</b> (más abajo, el porqué)</p>` : nextDue ? `<p class="small">Próxima sesión: <b>${nextDue.next <= today() ? 'ya toca' : fmtShort(nextDue.next)}</b></p>` : ''; })()}
     </section>
 
     <div class="section-head"><h2>Zonas</h2></div>

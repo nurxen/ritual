@@ -5,7 +5,7 @@ import {
   isHabit, dayCompletion, itemsOf, careStatus, markCareDone, iplBlock, products, productExpiry, checkRoutine,
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
   postIpl, scrubBlock, lipsPlan, planApplied, focusCats, minutesOf, unsetCare,
-  events, removeEvent, trainingOn, training,
+  events, removeEvent, trainingOn, training, bodyPlan, outDays,
 } from './store.js';
 import { PLANS } from './plans.js';
 import {
@@ -96,6 +96,7 @@ export function renderPicker() {
 // ---------------- Editor de perfil ----------------
 const SWATCHES = ['#F2A9BC', '#F4A988', '#F2CF7E', '#A8C99A', '#96D1CC', '#A7BCEB', '#BDB2F0', '#D3AEE6', '#E8B796', '#CFC7BE'];
 const DOW_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const fmtShortD = d => `${DOW_NAMES[parseDay(d).getDay()].toLowerCase()} ${d.slice(8).replace(/^0/, '')}/${d.slice(5, 7).replace(/^0/, '')}`;
 export function profileEditor() {
   const p = S.profile; const s = settings();
   const focusOpts = activeCats().filter(c => ['minutes', 'bool_minutes'].includes(c.type));
@@ -124,6 +125,8 @@ export function profileEditor() {
         <label class="chip check" style="min-width:64px"><input type="checkbox" ${t ? 'checked' : ''}>${DOW_NAMES[dw]}</label>
         <input class="input" type="time" value="${t?.time || '09:15'}" aria-label="Hora" style="flex:1">
         <input class="input" type="number" inputmode="numeric" value="${t?.min || 60}" aria-label="Minutos" style="width:72px"><span class="small muted">min</span></div>`; }).join('')}</div>
+      <div class="field"><span>Días que sueles salir (la app evita el IPL antes de salir: sin desodorante ni perfume 24 h)</span>
+        <div class="chips">${[1, 2, 3, 4, 5, 6, 0].map(dw => `<label class="chip check"><input type="checkbox" name="outDays" data-multi="1" value="${dw}" ${outDays().includes(dw) ? 'checked' : ''}>${DOW_NAMES[dw]}</label>`).join('')}</div></div>
       <h3 class="mt">Ciudad (UV y humedad)</h3>
       <div class="grid3">
         <label class="field"><span>Ciudad</span><input name="city" value="${esc(s.city)}"></label>
@@ -144,6 +147,7 @@ export function profileEditor() {
       await saveSettings({
         exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, focusKeys: f.focusKeys || [], focusGoal: f.focusGoal ?? 30,
         city: f.city, lat: f.lat ?? 40.4168, lon: f.lon ?? -3.7038,
+        outDays: $$('input[name=outDays]', body).filter(i => i.checked).map(i => Number(i.value)),
         training: $$('.train-row', body).filter(r => $('input[type=checkbox]', r).checked).map(r => ({ dow: Number(r.dataset.dow), time: $('input[type=time]', r).value || null, min: Number($('input[type=number]', r).value) || 60 })),
       });
       sessionStorage.clear();
@@ -375,13 +379,20 @@ function planCard() {
 function alertCards() {
   if (S.date !== today()) return '';
   const out = [];
-  const zones = itemsOf('care').filter(i => i.data.group === 'ipl');
-  const dueZ = zones.filter(z => careStatus(z).due);
-  if (dueZ.length) {
-    const block = iplBlock(); const restart = dueZ.some(z => careStatus(z).restart);
-    out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${block.length ? '#EFA3AE' : CARE_GROUP_COLORS.ipl}"><div class="rc-top">${block.length ? '🔒' : '✨'}<span>IPL</span></div>
-      <b>${dueZ.map(z => esc(z.data.name)).join(', ')}</b><span>${block.length ? esc(block[0].msg) : restart ? 'Toca reiniciar la fase inicial.' : 'Te toca sesión.'}</span></a>`);
+  // Cuerpo: lo que el planificador ha colocado hoy (y el aviso de mañana)
+  const bp = bodyPlan(); const tmw = addDays(today(), 1);
+  for (const e of bp.items.filter(x => x.day === today())) {
+    let when = e.time ? `Esta noche desde las ${e.time}` : 'Hoy';
+    if (e.time) { const [h, m] = e.time.split(':').map(Number); const t = new Date(); t.setHours(h, m, 0, 0); if (t <= new Date()) when = 'Ya puedes'; }
+    const col = e.kind === 'scrub' || e.kind === 'shave' ? CARE_GROUP_COLORS.cuerpo : CARE_GROUP_COLORS.ipl;
+    out.push(`<div class="rcard" style="--c:${col}"><div class="rc-top">${e.icon}<span>${e.min} min</span></div>
+      <b>${esc(e.title)}</b><span><b>${when}.</b> ${esc(e.why)}</span>
+      <div class="row gap" style="margin-top:auto">${e.kind === 'scrub' ? `<button class="btn tiny" data-care="${e.care.id}">Hecho</button>` : e.kind === 'ipl' ? '<a class="btn tiny" href="#/cuidado/ipl">Ir a IPL</a>' : ''}</div></div>`);
   }
+  const nextIpl = bp.items.find(x => x.kind === 'ipl' && x.day > today());
+  if (nextIpl && !bp.items.some(x => x.day === today() && x.kind !== 'scrub') && itemsOf('care').some(z => z.data.group === 'ipl' && careStatus(z).due))
+    out.push(`<a class="rcard" href="#/cuidado/ipl" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">✨<span>${nextIpl.day === tmw ? 'Mañana' : fmtShortD(nextIpl.day)}</span></div>
+      <b>IPL: mejor el ${fmtShortD(nextIpl.day)} a las ${nextIpl.time}</b><span>${esc(nextIpl.why)}</span></a>`);
   const plan = PLANS.find(p => p.forName.test(S.profile.name) && !planApplied(p));
   if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>${planVersionApplied(plan) ? 'Novedades en tu plan' : 'Tu plan de renovación'}</b><span>${planVersionApplied(plan) ? esc(plan.changes || '') : 'Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.'}</span></button>`);
   for (const e of events().filter(e => diffDays(e.date, today()) <= 30)) {
@@ -393,7 +404,7 @@ function alertCards() {
   const tr = trainingOn(today()); const exc = S.cats.find(c => c.type === 'exercise' && c.active);
   if (tr && exc && !getVal(exc.id, today())) {
     out.push(`<button class="rcard" data-open="${exc.id}" style="--c:${CARE_GROUP_COLORS.cuerpo || '#9CCFB5'};text-align:left"><div class="rc-top">🏋️<span>${esc(tr.time || '')}</span></div>
-      <b>Hoy entrenas (${tr.min} min)</b><span>Después: ducha templada, limpiador suave y crema. Hoy no toca IPL (mejor un día sin entreno). Toca para apuntarlo.</span></button>`);
+      <b>Hoy entrenas (${tr.min} min)</b><span>Después: ducha templada, limpiador suave y crema.${bp.items.some(x => x.day === today() && x.kind === 'ipl') ? ' El IPL, por la noche: 12 h después de acabar.' : ''} Toca para apuntarlo.</span></button>`);
   }
   const yday = addDays(today(), -1);
   if (activeCats().some(isHabit) && !activeCats().some(c => getVal(c.id, yday) !== undefined) && new Date().getHours() < 23)
@@ -404,7 +415,7 @@ function alertCards() {
   if (pi) out.push(`<div class="rcard" style="--c:${CARE_GROUP_COLORS.ipl}"><div class="rc-top">🤍<span>post-IPL</span></div><b>${esc(pi.zones.join(', '))}</b><span>${pi.first24 ? 'Hoy: LV Perusvoide; nada de desodorante, perfume ni bruma en esas zonas. ' : ''}Sin exfoliante hasta el ${pi.until.split('-').reverse().slice(0, 2).join('/')}. SPF si van al sol.</span></div>`);
   const lp = lipsPlan(); const lc = catByKey('lips');
   if (lp && !lp.cured && lc && !getVal(lc.id, today())) out.push(`<a class="rcard" href="#/cuidado/labios" style="--c:#F2A9BC"><div class="rc-top">👄<span>Día ${diffDays(today(), lp.start) + 1}</span></div><b>Labios: bálsamo en vez de tocar</b><span>Racha ${streak(lc)} días. Apunta los impulsos para verlos venir.</span></a>`);
-  itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due).forEach(i => {
+  itemsOf('care').filter(i => i.data.group !== 'ipl' && careStatus(i).due && !(i.data.key === 'body_scrub' && bp.scrubs.length)).forEach(i => {
     const blk = i.data.key === 'body_scrub' ? scrubBlock() : null;
     out.push(`
     <div class="rcard" style="--c:${CARE_GROUP_COLORS[i.data.group] || '#CFC7BE'}"><div class="rc-top">${esc(i.data.icon)}<span>${blk ? 'Espera' : careStatus(i).label}</span></div>

@@ -244,17 +244,19 @@ export const careLogs = () => itemsOf('carelog');
 
 // Próximos eventos (para la agenda y Google Calendar)
 export function upcomingEvents(days = 60) {
-  const out = []; const ipl = {};
+  const out = [];
+  const bp = bodyPlan();
   for (const i of itemsOf('care')) {
+    if (i.data.group === 'ipl' || (i.data.key === 'body_scrub' && bp.scrubs.length)) continue; // los coloca el planificador
     const st = careStatus(i);
     if (st.unset || diffDays(st.next, today()) > days) continue;
     const day = st.next < today() ? today() : st.next;
-    if (i.data.group === 'ipl') { (ipl[day] ||= []).push(i); continue; }
     out.push({ id: i.id, day, title: i.data.name, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
   }
-  // todas las zonas de IPL del mismo día, en un solo evento
-  for (const [day, zs] of Object.entries(ipl)) {
-    out.push({ id: `ipl-${day}`, day, title: `IPL · ${zs.map(z => z.data.name).join(', ')}`, icon: '✨', kind: 'care', group: 'ipl', late: zs.some(z => careStatus(z).tone === 'warn') });
+  // IPL, prueba, rasurado y exfoliante: días elegidos según entrenos, salidas y esperas
+  for (const e of bp.items) {
+    if (diffDays(e.day, today()) > days) continue;
+    out.push({ id: `bp-${e.kind}-${e.day}`, day: e.day, title: `${e.title}${e.time ? ` · ${e.time}` : ''}`, icon: e.icon, kind: 'care', group: e.kind === 'scrub' || e.kind === 'shave' ? 'cuerpo' : 'ipl', time: e.time, min: e.min });
   }
   for (const t of itemsOf('task')) {
     if (t.data.done || !t.data.due || diffDays(t.data.due, today()) > days) continue;
@@ -337,6 +339,154 @@ export function iplBlock() {
     if (diffDays(until, today()) > 0) reasons.push({ type: 'tan', msg: `Autobronceador reciente: espera hasta el ${until.split('-').reverse().join('/')} (2 semanas).` });
   }
   return reasons;
+}
+
+// ---------------- Planificador de cuerpo: entreno · salir · rasurar · IPL · exfoliar ----------------
+// Reglas (todas con su porqué):
+//  · IPL por la noche, al menos 12 h después de acabar de entrenar (piel sin calor ni sudor).
+//  · Después del IPL, mejor 24 h sin sudar (entreno) y sin desodorante ni perfume en la zona (salir).
+//  · Exfoliante corporal: nunca 48 h antes ni 48 h después del IPL.
+//  · Rasurar la víspera del IPL (si se rasura justo antes, la piel está más irritada).
+//  · Prueba de piel 24 h antes de la primera sesión o al volver tras sol.
+//  · Nada de IPL 2 días antes de un evento, por si queda algo de rojez; exfoliar 1–2 días antes, sí.
+export const outDays = () => settings().outDays ?? [5, 6, 0];
+const dowOf = d => parseDay(d).getDay();
+const isOut = d => outDays().includes(dowOf(d));
+const atTime = (day, h, m = 0) => { const t = parseDay(day); t.setHours(h, m, 0, 0); return t; };
+export const hhmm = t => `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+export const IPL_MIN = { ipl_piernas: 15, ipl_brazos: 8, ipl_ingles: 5, ipl_axilas: 3, ipl_cara: 3 };
+export const SCRUB_MIN = 10, SHAVE_MIN = 15;
+function trainWin(day) {
+  if (day === today()) {
+    const lw = lastWorkout();
+    if (lw && dayStr(lw) === today()) return { start: null, end: lw, time: hhmm(lw), logged: true };
+  }
+  const t = trainingOn(day); if (!t?.time) return null;
+  const [h, m] = t.time.split(':').map(Number); const start = atTime(day, h, m);
+  return { start, end: new Date(start.getTime() + (Number(t.min) || 60) * 60000), time: t.time };
+}
+// Prueba de piel: es un disparo pequeño; basta con que la piel ya no esté caliente (3 h después de entrenar)
+function testSlot(day) {
+  let t = atTime(day, 21); const tw = trainWin(day);
+  if (tw && tw.end.getTime() + 3 * 3600e3 > t.getTime()) t = new Date(tw.end.getTime() + 3 * 3600e3);
+  if (day === today() && t < new Date()) t = new Date();
+  return t <= atTime(day, 23, 30) ? t : null;
+}
+// Hora más temprana para el IPL esa noche (21:00 o 12 h después del entreno), o null si no da tiempo antes de las 23:30
+function iplSlot(day) {
+  let t = atTime(day, 21);
+  const tw = trainWin(day);
+  if (tw && tw.end.getTime() + 12 * 3600e3 > t.getTime()) t = new Date(tw.end.getTime() + 12 * 3600e3);
+  if (day === today() && t < new Date()) t = new Date();
+  return t <= atTime(day, 23, 30) ? t : null;
+}
+const dm = d => d.split('-').reverse().slice(0, 2).join('/');
+function scoreIpl(d, base) {
+  const slot = iplSlot(d); if (!slot) return null;
+  let sc = 0.25 * Math.max(0, diffDays(d, base)); const pro = [], con = [];
+  const tw = trainWin(d);
+  pro.push(tw ? `entrenas a las ${tw.time} y por la noche ya han pasado 12 h` : 'ese día no entrenas');
+  const nx = addDays(d, 1); const tn = trainWin(nx);
+  if (tn?.start && (tn.start - slot) / 3600e3 < 24) { sc += 3; con.push(`al día siguiente entrenas a las ${tn.time}: sudarás antes de 24 h`); }
+  else pro.push('al día siguiente no entrenas: 24 h sin sudar');
+  if (isOut(nx)) { sc += 2; con.push('al día siguiente sales: tendrás que pasar sin desodorante ni perfume en la zona'); }
+  else pro.push('al día siguiente no sales: sin desodorante ni perfume en la zona sin problema');
+  if (isOut(d)) { sc += 1; con.push('ese día sales: hazlo al volver, con la piel limpia'); }
+  for (const e of settings().events || []) {
+    const k = diffDays(e.date, d);
+    if (k >= 0 && k <= 2) { sc += 4; con.push(`a ${k} días de ${e.title}`); }
+  }
+  return { sc, slot, pro, con };
+}
+export function bodyPlan() {
+  const items = []; const sessions = [];
+  const zones = itemsOf('care').filter(i => i.data.group === 'ipl');
+  const lastIpl = zones.map(z => z.data.last).filter(Boolean).sort().pop() || null;
+  const scrubIt = itemsOf('care').find(i => i.data.key === 'body_scrub');
+  const lastScrub = [scrubIt?.data.last, lastLog(d => d.key === 'body_scrub' || /exfoli/i.test(d.name || ''))].filter(Boolean).sort().pop() || null;
+  // ---- IPL (hasta 2 sesiones vista) ----
+  let pend = zones.map(z => ({ z, st: careStatus(z) }));
+  for (let n = 0; n < 2 && pend.length; n++) {
+    let base = pend.map(x => x.st.next).sort()[0];
+    if (base < today()) base = today();
+    if (diffDays(base, today()) > 28) break;
+    const needTest = n === 0 && pend.some(x => x.st.waiting || x.st.restart || !x.z.data.last) ;
+    let best = null;
+    for (let i = needTest ? 1 : 0; i <= 7; i++) {
+      const d = addDays(base, i);
+      if (n === 0 && lastScrub && diffDays(d, lastScrub) < 2) continue;
+      const s = scoreIpl(d, base); if (!s) continue;
+      if (!best || s.sc < best.sc) best = { ...s, day: d };
+    }
+    if (!best) break;
+    const d = best.day;
+    const inZ = pend.filter(x => diffDays(x.st.next < today() ? today() : x.st.next, d) <= 3);
+    const min = 5 + inZ.reduce((a, x) => a + (IPL_MIN[x.z.data.key] || 5), 0);
+    let test = null;
+    if (needTest) {
+      for (let k = 1; k <= 4; k++) {
+        const t = addDays(d, -k); if (t < today() || t < base) break;
+        if (testSlot(t) && !isOut(t)) { test = t; break; }
+      }
+      if (!test && addDays(d, -1) >= today()) test = addDays(d, -1);
+    }
+    const ses = { day: d, time: hhmm(best.slot), zones: inZ.map(x => x.z), min, pro: best.pro, con: best.con, test, restart: needTest };
+    sessions.push(ses);
+    if (test) items.push({ day: test, kind: 'ipltest', icon: '🧪', title: 'IPL: prueba de piel', time: hhmm(testSlot(test) || atTime(test, 21)), min: 5,
+      why: `Rasura antes un trocito de cada zona y da un disparo a la intensidad que vayas a usar. Si a las 24 h no hay rojez ni ampollas, la sesión del ${dm(d)} sigue en pie.` });
+    const shave = addDays(d, -1);
+    if (shave >= today()) items.push({ day: shave, kind: 'shave', icon: '🪒', title: 'Rasurar para el IPL', min: SHAVE_MIN,
+      why: `Mañana toca IPL. Rasurar la víspera deja la piel en calma para la sesión. Sin exfoliante ni cera.` });
+    items.push({ day: d, kind: 'ipl', icon: '✨', title: `IPL · ${ses.zones.map(z => z.data.name).join(', ')}`, time: ses.time, min, zones: ses.zones,
+      why: `Por qué este día: ${best.pro.join('; ')}.${best.con.length ? ` A tener en cuenta: ${best.con.join('; ')}.` : ''}` });
+    // siguiente ronda
+    pend = pend.map(x => inZ.includes(x) ? { z: x.z, st: { next: addDays(d, x.z.data.phase === 'mantenimiento' ? 28 : 14) } } : x);
+  }
+  // ---- Exfoliante (respeta 48 h con cualquier IPL) ----
+  const iplDays = [lastIpl, ...sessions.map(s => s.day)].filter(Boolean);
+  const scrubs = [];
+  if (scrubIt) {
+    const iv = Number(scrubIt.data.interval) || 4;
+    let last = lastScrub;
+    for (let n = 0; n < 6; n++) {
+      let target = last ? addDays(last, iv) : today();
+      let lo = last ? addDays(last, Math.max(2, iv - 1)) : today();
+      if (lo < today()) lo = today();
+      if (target < today()) target = today();
+      let best = null;
+      for (let i = 0; i <= 8; i++) {
+        const d = addDays(lo, i);
+        if (iplDays.some(x => Math.abs(diffDays(d, x)) < 2)) continue;
+        let sc = 0.5 * Math.abs(diffDays(d, target)); const pro = [];
+        const near = iplDays.filter(x => Math.abs(diffDays(d, x)) <= 4).sort((a, b) => Math.abs(diffDays(d, a)) - Math.abs(diffDays(d, b)))[0];
+        if (near) pro.push(diffDays(near, d) > 0 ? `${diffDays(near, d)} días antes del IPL del ${dm(near)}` : `${diffDays(d, near)} días después del IPL del ${dm(near)}`);
+        const tw = trainWin(d);
+        if (tw) sc += 1;
+        if (isOut(d) && !tw) { sc -= 0.5; pro.push('sales ese día: piel lisa y la crema y el perfume se agarran mejor'); }
+        for (const e of settings().events || []) { const k = diffDays(e.date, d); if (k >= 1 && k <= 2) { sc -= 1; pro.push(`a ${k} días de ${e.title}`); } }
+        if (!tw) pro.push('no entrenas ese día');
+        if (!best || sc < best.sc) best = { day: d, sc, pro, tw };
+      }
+      if (!best) break;
+      if (diffDays(best.day, today()) > 21) break;
+      scrubs.push(best.day);
+      items.push({ day: best.day, kind: 'scrub', icon: '🧽', title: 'Exfoliante corporal', min: SCRUB_MIN, care: scrubIt,
+        why: `${best.tw ? (best.tw.end.getHours() < 15 ? `Entrenas a las ${best.tw.time}: hazlo en la ducha de la noche, con la piel ya en calma. ` : `Entrenas a las ${best.tw.time}: hazlo en la ducha de después, cuando ya no estés sudada ni roja (unos 30 min), con agua templada y sin frotar fuerte. `) : ''}Por qué este día: ${best.pro.join('; ')}.` });
+      last = best.day;
+    }
+  }
+  items.sort((a, b) => a.day.localeCompare(b.day) || (a.kind === 'scrub' ? -1 : 1));
+  return { items, sessions, scrubs };
+}
+// Avisos de espera en tiempo real para hoy (exfoliante o IPL)
+export function waitMsg(kind) {
+  const bp = bodyPlan();
+  if (kind === 'ipl') {
+    const s = bp.items.find(e => e.kind === 'ipl' && e.day === today()); if (!s) return null;
+    const [h, m] = s.time.split(':').map(Number); const t = atTime(today(), h, m);
+    return t > new Date() ? `Espera hasta las ${s.time}` : 'Ya puedes';
+  }
+  return null;
 }
 
 // ---------------- Productos ----------------
@@ -526,6 +676,7 @@ export async function applyPlan(plan) {
     const it = itemsOf('care').find(i => i.data.key === key);
     if (it) await saveItem(it, patch);
   }
+  for (const pre of plan.taskRemove || []) for (const t of tasks().filter(t => !t.data.done && t.data.title.startsWith(pre))) await deleteItem(t);
   for (const t of pv.tasks) await addItem('task', { title: t.title, prio: t.prio, est: t.est, due: t.due || (t.dueToday ? today() : null), done: false });
   // Perfumes: actualiza la descripción salvo que la hayas cambiado tú; añade los que falten
   const pfPool = itemsOf('perfume').slice();
@@ -557,6 +708,7 @@ export async function applyPlan(plan) {
   const extra = {};
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
   if (plan.training && !s.training) extra.training = plan.training;
+  if (plan.outDays && !s.outDays) extra.outDays = plan.outDays;
   if (plan.events) extra.events = [...(s.events || []), ...plan.events.filter(e => !(s.events || []).some(x => x.id === e.id) && !(s.eventsRemoved || []).includes(e.id))];
   await saveSettings({
     ...extra,
