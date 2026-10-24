@@ -5,6 +5,7 @@ import {
   isHabit, dayCompletion, itemsOf, careStatus, markCareDone, iplBlock, products, productExpiry, checkRoutine,
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
   postIpl, scrubBlock, lipsPlan, planApplied, focusCats, minutesOf, unsetCare,
+  events, removeEvent, trainingOn, training,
 } from './store.js';
 import { PLANS } from './plans.js';
 import {
@@ -94,6 +95,7 @@ export function renderPicker() {
 
 // ---------------- Editor de perfil ----------------
 const SWATCHES = ['#F2A9BC', '#F4A988', '#F2CF7E', '#A8C99A', '#96D1CC', '#A7BCEB', '#BDB2F0', '#D3AEE6', '#E8B796', '#CFC7BE'];
+const DOW_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 export function profileEditor() {
   const p = S.profile; const s = settings();
   const focusOpts = activeCats().filter(c => ['minutes', 'bool_minutes'].includes(c.type));
@@ -116,6 +118,12 @@ export function profileEditor() {
       <label class="field"><span>Líneas de foco del plan (puedes marcar varias; usan la meta de cada hábito)</span>
         <div class="chips">${focusOpts.map(c => `<label class="chip check"><input type="checkbox" name="focusKeys" data-multi="1" value="${c.key || c.id}" ${focusCats().some(x => x.id === c.id) ? 'checked' : ''}>${esc(c.icon)} ${esc(c.name)}</label>`).join('')}</div></label>
       <label class="field"><span>Minutos al día si el hábito no tiene meta propia</span><input type="number" name="focusGoal" value="${s.focusGoal ?? 30}"></label>
+      <h3 class="mt">Mis entrenos</h3>
+      <p class="small muted">Con esto la app coloca el IPL, los lavados y el plan de Hoy. Si cambias de horario (p. ej. al empezar a trabajar), cámbialo aquí.</p>
+      <div class="stack" id="trainRows">${[1, 2, 3, 4, 5, 6, 0].map(dw => { const t = training().find(x => x.dow === dw); return `<div class="row gap train-row" data-dow="${dw}">
+        <label class="chip check" style="min-width:64px"><input type="checkbox" ${t ? 'checked' : ''}>${DOW_NAMES[dw]}</label>
+        <input class="input" type="time" value="${t?.time || '09:15'}" aria-label="Hora" style="flex:1">
+        <input class="input" type="number" inputmode="numeric" value="${t?.min || 60}" aria-label="Minutos" style="width:72px"><span class="small muted">min</span></div>`; }).join('')}</div>
       <h3 class="mt">Ciudad (UV y humedad)</h3>
       <div class="grid3">
         <label class="field"><span>Ciudad</span><input name="city" value="${esc(s.city)}"></label>
@@ -136,6 +144,7 @@ export function profileEditor() {
       await saveSettings({
         exerciseGoal: f.exerciseGoal ?? 45, freeTime: f.freeTime ?? 120, focusKeys: f.focusKeys || [], focusGoal: f.focusGoal ?? 30,
         city: f.city, lat: f.lat ?? 40.4168, lon: f.lon ?? -3.7038,
+        training: $$('.train-row', body).filter(r => $('input[type=checkbox]', r).checked).map(r => ({ dow: Number(r.dataset.dow), time: $('input[type=time]', r).value || null, min: Number($('input[type=number]', r).value) || 60 })),
       });
       sessionStorage.clear();
       document.documentElement.style.setProperty('--pc', color);
@@ -281,6 +290,8 @@ export function habitSheet(c, day, after) {
   else if (c.type === 'text') html = `<textarea class="input" rows="7" id="val" placeholder="Cómo ha ido el día…">${esc(v || '')}</textarea><button class="btn primary block mt" id="ok">Guardar nota</button>`;
   else if (c.type === 'exercise') {
     const x = { ...(v || {}) };
+    const plan = !v && trainingOn(S.date);
+    if (plan) { x.min = plan.min; x.time = plan.time; }
     html = `<div class="stack" id="ex">
       <div class="chips">${EX_TYPES.map(([k, l]) => `<button class="chip ${x.type === k ? 'on' : ''}" data-f="type" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="grid3"><label class="field"><span>Minutos</span><input type="number" inputmode="numeric" id="min" value="${x.min ?? ''}"></label>
@@ -373,6 +384,17 @@ function alertCards() {
   }
   const plan = PLANS.find(p => p.forName.test(S.profile.name) && !planApplied(p));
   if (plan) out.unshift(`<button class="rcard" data-plan="${plan.id}" style="--c:#D3AEE6;text-align:left"><div class="rc-top">📋<span>Nuevo</span></div><b>${planVersionApplied(plan) ? 'Novedades en tu plan' : 'Tu plan de renovación'}</b><span>${planVersionApplied(plan) ? esc(plan.changes || '') : 'Qué guardar, gastar, dejar y comprar. Toca para revisarlo y aplicarlo.'}</span></button>`);
+  for (const e of events().filter(e => diffDays(e.date, today()) <= 30)) {
+    const n = diffDays(e.date, today());
+    out.unshift(`<div class="rcard" style="--c:#E8C979"><div class="rc-top">${esc(e.icon || '⭐')}<span>${n === 0 ? 'Hoy' : n === 1 ? 'Mañana' : `${n} días`}</span></div>
+      <b>${esc(e.title)}</b><span>${n === 0 ? 'Lotion pack, protector y el maquillaje que ensayaste. ¡Disfruta!' : n <= 7 ? 'Nada nuevo en la cara hasta entonces. Sigue las tareas con 🎓 en Agenda.' : esc(e.note || 'Las tareas con fecha están en Agenda.')}</span>
+      <div class="row gap" style="margin-top:auto"><a class="btn tiny" href="#/agenda">Ver tareas</a></div></div>`);
+  }
+  const tr = trainingOn(today()); const exc = S.cats.find(c => c.type === 'exercise' && c.active);
+  if (tr && exc && !getVal(exc.id, today())) {
+    out.push(`<button class="rcard" data-open="${exc.id}" style="--c:${CARE_GROUP_COLORS.cuerpo || '#9CCFB5'};text-align:left"><div class="rc-top">🏋️<span>${esc(tr.time || '')}</span></div>
+      <b>Hoy entrenas (${tr.min} min)</b><span>Después: ducha templada, limpiador suave y crema. Hoy no toca IPL (mejor un día sin entreno). Toca para apuntarlo.</span></button>`);
+  }
   const yday = addDays(today(), -1);
   if (activeCats().some(isHabit) && !activeCats().some(c => getVal(c.id, yday) !== undefined) && new Date().getHours() < 23)
     out.push(`<button class="rcard" data-yday style="--c:#CFC7BE;text-align:left"><div class="rc-top">🗓️<span>Ayer</span></div><b>Ayer no apuntaste nada</b><span>Si te acuerdas, rellénalo en un minuto: las rachas y las estadísticas lo agradecen.</span></button>`);

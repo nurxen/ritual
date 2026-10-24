@@ -255,6 +255,8 @@ export const SOURCES = {
   aad_color: { t: 'AAD · Consejos para teñir el pelo', u: 'https://www.aad.org/public/everyday-care/hair-scalp-care/hair/coloring-perming-tips' },
   nhs_dye: { t: 'NHS · Reacciones al tinte', u: 'https://www.nhs.uk/conditions/hair-dye-reactions' },
   aad_makeup: { t: 'AAD · ¿Puedo maquillarme si tengo acné?', u: 'https://www.aad.org/public/diseases/acne/causes/makeup' },
+  aad_types: { t: 'AAD · Acné: tipos de granos (puntos negros, blancos…) y tratamiento', u: 'https://www.aad.org/public/diseases/acne/types/breakouts' },
+  aad_pores: { t: 'AAD · Cómo reducir el aspecto de los poros dilatados', u: 'https://www.aad.org/public/everyday-care/skin-care-secrets/routine/large-pores' },
   aad_habits: { t: 'AAD · 10 hábitos que pueden empeorar el acné', u: 'https://www.aad.org/public/diseases/acne/skin-care/habits-stop' },
   cc_brushes: { t: 'Cleveland Clinic · Cada cuánto limpiar las brochas', u: 'https://health.clevelandclinic.org/cleaning-makeup-brushes' },
   curology_pilling: { t: 'Curology · Por qué el maquillaje hace bolitas', u: 'https://curology.com/blog/3-reasons-your-cosmetics-are-pilling' },

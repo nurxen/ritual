@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 5,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Guía más corta y sin repeticiones, precios aproximados de todos tus productos, “Tu semana” con mascarillas y exfoliante, y lista de no comprar al día.',
+  version: 6,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Plan para tu graduación con fechas, tus entrenos, tus perfumes y brumas ordenados, el regenerador Eucerin, el aceite seco y los discos de Muji, y un tema nuevo sobre poros y puntos negros.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -59,9 +59,11 @@ export const PLANS = [{
     { match: 'fluido solar|deliplus.*spf', name: 'Fluido solar facial SPF 50+', brand: 'Deliplus', type: 'Protector solar', area: 'Cuidado facial',
       status: 'useup', slot: 'none', tags: ['spf'],
       note: 'En la cara solo hasta que tengas el Relief Sun. Después, gástalo en cuello, manos y cuerpo.' },
+    { match: 'eucerin|regenerador labial', name: 'SOS Regenerador Labial', brand: 'Eucerin', type: 'Bálsamo', area: L, sub: 'Labios', since: 6,
+      status: 'keep' },
     { match: 'vaselin', name: 'Vaselina', brand: '', type: 'Oclusivo', area: L, sub: 'Labios',
-      status: 'keep', slot: 'pm', step: 9, tags: ['occlusive'], replaceWith: 'Vaselina o Aquaphor',
-      note: 'De noche, capa gruesa en los labios. Funciona como la Laneige Lip Sleeping Mask por mucho menos.' },
+      status: 'keep', slot: 'none', step: 9, tags: ['occlusive'], replaceWith: 'Vaselina o Aquaphor',
+      note: 'De recambio: de noche en los labios cuando acabes el Eucerin, y mientras tanto para cutículas y zonas secas.' },
     { match: 'iroha', name: 'Parches SOS granos', brand: 'Iroha', type: 'Parches', area: 'Cuidado facial',
       status: 'wish', store: 'Primor',
       note: 'Hidrocoloide: ayuda al grano y te impide tocarlo. No los uses en los labios.' },
@@ -221,6 +223,13 @@ export const PLANS = [{
     { match: 'difusor', name: 'Difusor', brand: '', type: 'Herramienta', area: 'Pelo',
       status: 'keep', pao: null, note: 'Perfecto para los rizos: temperatura baja o media.' },
 
+    { match: 'aceite seco', name: 'Aceite seco caramelo y vainilla', brand: 'Sol Beauty', type: 'Aceite corporal', area: 'Cuerpo', since: 6,
+      status: 'useup', tags: ['fragrance'],
+      note: 'Para el cuerpo: unas gotas en brazos, piernas y escote con la piel aún húmeda tras la ducha (da brillo y huele a vainilla). Una gota en las puntas del pelo. Nunca en la cara ni en zonas con IPL de menos de 24 h. Gástalo y no lo repongas: con la crema basta.' },
+    { match: 'muji|discos de algod|cotton pad', name: 'Discos de algodón separables (6 × 5 cm)', brand: 'Muji', type: 'Accesorio', area: 'Cuidado facial', since: 6,
+      status: 'wish', store: 'Muji', pao: null,
+      note: 'Para la lotion pack: se separan en capas finas. Empapa 2–3 en el tónico y ábrelos sobre nariz, ojeras y mejillas.' },
+
     // ---------------- Desmaquillar y cara ----------------
     { match: 'micelar.*yves|yves.*micelar', name: 'Agua micelar', brand: 'Yves Rocher', type: 'Desmaquillante', area: 'Cuidado facial',
       status: 'useup', note: 'Primer paso de la doble limpieza hasta que llegue el aceite Anua, siempre aclarando después con el limpiador. Luego guarda una de las dos micelares solo para los ojos. No la recompres.' },
@@ -235,9 +244,9 @@ export const PLANS = [{
     { match: 'exfoliante.*sol|sol beauty.*exfol', name: 'Exfoliante corporal', brand: 'Sol Beauty', type: 'Exfoliante corporal', area: 'Cuerpo',
       status: 'wish', store: 'Primor', timerSec: 60, timerKind: 'massage', timerAfter: 'Aclara con agua templada sin frotar más. Recuerda: nada de exfoliante 48 h antes ni después del IPL.', note: 'Cuando haya stock. 1–2 veces por semana; nunca 48 h antes ni después del IPL.' },
     { match: 'crema.*(caramel|vainilla)|sol beauty.*crema', name: 'Crema corporal caramelo salado y vainilla', brand: 'Sol Beauty', type: 'Corporal', area: 'Cuerpo',
-      status: 'wish', store: 'Primor', note: 'Cuando haya stock. Mejor que el aceite seco: hidrata y fija el perfume. Encima, Good Girl.' },
+      status: 'wish', store: 'Primor', note: 'Con la piel aún húmeda tras la ducha: hidrata y hace que el perfume dure. Encima, Cool de Saphir o una bruma Cheirosa. Nunca en zonas con IPL de menos de 24 h.' },
     { match: 'salted caramel|bruma|fragrance mist|body mist', name: 'Bruma salted caramel vanilla', brand: '', type: 'Bruma corporal', area: 'Cuerpo',
-      status: 'useup', tags: ['fragrance'], note: 'Ya la tienes: no compres otra. Nunca en zonas recién depiladas con el IPL (el alcohol irrita).' },
+      status: 'useup', tags: ['fragrance'], note: 'Va con tu familia: Cool de Saphir lleva toques de caramelo y vainilla. Úsala en la ropa o debajo del perfume en días normales hasta gastarla. Nunca en zonas con IPL de menos de 24 h.' },
     { match: 'good girl.*recarga|recarga.*good girl', name: 'Recarga Good Girl', brand: 'Carolina Herrera', type: 'Perfume', area: 'Cuerpo',
       status: 'wish', store: 'Primor', note: 'Cuando haya stock: si ya tienes el frasco, la recarga sale más barata.' },
     { match: 'occitane', name: 'Crema de manos', brand: "L'Occitane", type: 'Manos', area: 'Cuerpo',
@@ -289,10 +298,12 @@ export const PLANS = [{
     'Hydro Boost: cuando se acabe, Purito Oat-in (ya está en tu lista)',
     'Mascarillas nuevas, hasta gastar las que tienes',
     'Gomas con grapa metálica',
+    'Más perfumes o brumas: tu familia ya está completa',
   ],
 
   // Precios aproximados en España (orientativos; se ponen solo donde no hay precio y se marcan con ≈)
   prices: [
+    { match: 'aceite seco', price: 6 }, { match: 'muji|discos de algod', price: 3 },
     { match: 'multi ?tasker', price: 7.5 },
     { match: 'tri[aá]ngulos.*peque', price: 2 },
     { match: 'tri[aá]ngulos.*grande', price: 2 },
@@ -396,6 +407,7 @@ export const PLANS = [{
 
   cats: ['lips'],
   care: ['deep_wash', 'roller_wash', 'body_scrub', 'hairbrush_clean', 'sponge_replace', 'brushes'],
+  careSince: { deep_wash: 1, roller_wash: 1, body_scrub: 1, hairbrush_clean: 2, sponge_replace: 2, brushes: 3 },
   careUpdates: {
     body_scrub: { interval: 4, tip: '1–2 veces por semana. Nunca 48 h antes ni después de una sesión de IPL.' },
     face_mask: { timerSec: 900, timerKind: 'on', timerAfter: 'Retírala, extiende lo que sobre y sella con la hidratante. Ajusta el tiempo a lo que diga el envase.', tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
@@ -413,14 +425,49 @@ export const PLANS = [{
     { title: 'Repartir cremas mini: bolso, bolsa del gimnasio y casa', prio: 'pequena', est: 5 },
     { title: 'Pegar las brochas que se separan de la madera (gota de pegamento instantáneo, 24 h)', prio: 'pequena', est: 10 },
     { title: 'Elegir 1 esponja grande, 1 pequeña y 1 triángulo en uso; guardar el resto de recambio', prio: 'pequena', est: 5 },
+    // Graduación (6 de noviembre)
+    { since: 6, due: '2026-10-30', prio: 'importante', est: 5, title: '🎓 IPL: prueba de piel en las zonas que vayas a tratar (viernes, sin entreno)' },
+    { since: 6, due: '2026-11-01', prio: 'importante', est: 30, title: '🎓 IPL: primera sesión por la noche, después del ensayo (domingo: ni entreno ese día ni el lunes). Después, LV Perusvoide y 24 h sin desodorante ni perfume en la zona' },
+    { since: 6, due: '2026-10-31', prio: 'importante', est: 60, title: '🎓 Peluquería: sanear puntas' },
+    { since: 6, due: '2026-11-01', prio: 'importante', est: 45, title: '🎓 Ensayo de maquillaje completo, con fotos con flash y con luz natural' },
+    { since: 6, due: '2026-11-03', prio: 'pequena', est: 15, title: '🎓 Cejas (con días para que baje la rojez)' },
+    { since: 6, due: '2026-11-03', prio: 'pequena', est: 10, title: '🎓 Exfoliante corporal por la noche (ya han pasado 48 h desde el IPL)' },
+    { since: 6, due: '2026-11-04', prio: 'pequena', est: 40, title: '🎓 Manicura' },
+    { since: 6, due: '2026-11-05', prio: 'importante', est: 20, title: '🎓 Lavado a fondo del pelo y mascarilla' },
+    { since: 6, due: '2026-11-05', prio: 'importante', est: 30, title: '🎓 Noche antes: mascarilla Keana, rasurar, LV Perusvoide, Eucerin en los labios y a dormir pronto' },
+    { since: 6, due: '2026-11-06', prio: 'urgente', est: 45, title: '🎓 Graduación: lotion pack (⏱ 6′), protector (⏱ 5′) y el maquillaje del ensayo. Carolina Herrera sola' },
+    { since: 6, due: '2026-11-07', prio: 'pequena', est: 5, title: 'Empezar lo de Stylevana, de uno en uno (primero el aceite Anua)' },
   ],
   settings: { lips: { start: 'today', cured: false } },
+  // Se añaden solo si aún no los tienes (luego los cambias en tu perfil)
+  training: [{ dow: 2, time: '09:15', min: 60 }, { dow: 3, time: '09:15', min: 60 }, { dow: 4, time: '09:15', min: 60 }, { dow: 6, time: '10:00', min: 60 }],
+  events: [{ id: 'graduacion-2026', title: 'Graduación', date: '2026-11-06', icon: '🎓', note: 'Hasta entonces, nada nuevo en la cara.' }],
   routineNotes: {
     am: 'Si anoche hiciste doble limpieza, por la mañana basta con agua. Lotion pack si te vas a maquillar.',
     pm: 'Doble limpieza solo si te has maquillado o llevas un protector resistente al agua. Si no, con una limpieza basta. Si entrenas justo antes, esa limpieza ya cuenta.',
   },
 
   // Guía personal (solo para este perfil)
+  perfumes: [
+    { match: 'carolina herrera \\(new york\\)|^carolina herrera$', name: 'Carolina Herrera (New York)', brand: 'Carolina Herrera', role: 'Signature', family: 'Floral: jazmín, nardo y sándalo',
+      moments: ['Eventos', 'Noche / Madrid'], note: 'Tu favorito, para eventos: el de la graduación. Sobre piel hidratada con crema sin perfume, y solo, sin mezclar.' },
+    { match: 'cool de saphir|cool saphir', name: 'Cool de Saphir', brand: 'Saphir', role: 'Diario', family: 'Floral con fondo de vainilla: grosella, jazmín, rosa, toques de caramelo, ámbar',
+      moments: ['Día a día limpio', 'Post-gym / fresco'], note: 'Tu diario. Comparte grosella, jazmín y vainilla con las brumas Cheirosa 76 y 59: combínalas.' },
+    { match: 'rio radiance|cheirosa 87', name: 'Rio Radiance', brand: 'Sol de Janeiro', role: 'Bruma de verano', family: 'Floral solar: coco, nardo, mango, vainilla y ámbar',
+      moments: ['Verano'], note: 'Esta sí es de verano: guárdala de mayo a septiembre. Antes de usarla, huélela por si ha cambiado.' },
+    { match: 'cheirosa 76|\\b76\\b', name: 'Cheirosa 76', brand: 'Sol de Janeiro', role: 'Bruma', family: 'Ámbar floral: grosella, pera, jazmín, vainilla y pachuli',
+      moments: ['Día a día limpio', 'Post-gym / fresco', 'Noche / Madrid'], note: 'No es de verano: es cálida y va con tu familia. Sola después del Box, o en el pelo y la ropa debajo de Cool de Saphir.' },
+    { match: 'cheirosa 59|\\b59\\b', name: 'Cheirosa 59', brand: 'Sol de Janeiro', role: 'Bruma', family: 'Floral avainillado: orquídea de vainilla, violeta, sándalo y ciruela',
+      moments: ['Día a día limpio', 'Post-gym / fresco'], note: 'Suave y avainillada: sirve todo el año. Gástala, que te gusta mucho.' },
+    { match: 'nefertiti', name: 'Nefertiti 31', brand: '', role: 'Por decidir', family: 'Por clasificar',
+      moments: [], note: 'No he encontrado sus notas. Mira la caja: si lleva vainilla, ámbar o flores blancas (jazmín, nardo), es de tu familia y vale para noches de invierno; si es oud o especiado, para ocasiones puntuales. Pruébalo en una muñeca y Cool de Saphir en la otra, y huele a los 30 min.' },
+  ],
+  combos: [
+    { name: 'Diario que dura', type: 'layering', steps: ['Crema corporal con la piel húmeda (LV o la de avena)', 'Cheirosa 76 o 59 en el pelo y la ropa', 'Cool de Saphir en cuello y muñecas'], notes: 'Las brumas duran poco solas; debajo del perfume suman.' },
+    { name: 'Gourmand suave', type: 'layering', steps: ['Aceite seco de caramelo y vainilla en brazos y piernas tras la ducha', 'Bruma de caramelo salado en la ropa (opcional)', 'Cool de Saphir'], notes: 'El caramelo y la vainilla ya están en Cool de Saphir: no chocan.' },
+    { name: 'Graduación', type: 'layering', steps: ['Crema sin perfume (LV) con la piel húmeda', 'Carolina Herrera New York en cuello, nuca y muñecas, sin frotar', 'Nada más: que sea la protagonista'], notes: 'Nunca en zonas con IPL de menos de 24 h.' },
+  ],
+
   // Temas antiguos que ahora están dentro de otros
   guideRemove: ['p-lotion', 'p-ojera', 'p-desmaquillar', 'p-mascarilla', 'p-herramientas', 'p-ipl'],
   // Guía personal (solo para este perfil): corta, sin repetir lo que ya se ve en Rutinas o en Compra
@@ -446,6 +493,16 @@ export const PLANS = [{
         '<b>Limpieza:</b> esponjas, triángulos y brochas de base cada semana (las de ojos cada 2, las de polvo cada mes), secando en plano. Esponjas nuevas cada 3 meses. Si una brocha se despega, una gota de pegamento instantáneo y 24 h.',
         '<b>Higiene:</b> máscaras fuera a los 3–6 meses; glosses y labiales líquidos, al año. Riza las pestañas antes de la máscara.',
         '<b>Qué reponer y qué no comprar:</b> lo tienes al día en Inventario → Compra.',
+      ],
+    },
+    {
+      gid: 'p-poros', icon: '🔍', color: '#A7BCEB', title: 'Poros y puntos negros', lead: 'Qué funciona, qué no y cuánto tarda.', src: ['aad_types', 'aad_pores'],
+      body: [
+        '<b>Los puntos negros no son suciedad:</b> es grasa oxidada en la boca del poro. En la nariz, parte son filamentos de sebo normales: se reducen, pero no desaparecen del todo. No frotes ni aprietes.',
+        '<b>Puntitos blancos en la barbilla:</b> suelen ser poros cerrados. Si son duros, muy blancos y no cambian en semanas, pueden ser milios, y esos solo los quita un dermatólogo.',
+        '<b>Lo que ya haces bien:</b> salicílico 3–4 noches, niacinamida en la zona T, protector diario y productos que no obstruyen. Dale 6–8 semanas antes de juzgarlo.',
+        '<b>Si en 6–8 semanas no mejora:</b> lo que más funciona es un retinoide de noche (el adapaleno en España necesita receta: pídelo al dermatólogo o a tu médico). Se empieza 2–3 noches por semana y nunca la misma noche que el salicílico. O una extracción en consulta.',
+        '<b>Antes de un evento:</b> nada nuevo y ninguna extracción en los últimos 7–10 días. Polvo solo en la nariz, con el triángulo.',
       ],
     },
     {
@@ -477,7 +534,7 @@ export const PLANS = [{
         '<b>Antes de la sesión:</b> zona rasurada, limpia y seca, sin cremas ni perfume. Cristal y cabezal limpios.',
         '<b>Después:</b> LV Perusvoide. 24 h sin desodorante, perfume ni bruma en la zona; 48 h sin exfoliante (tampoco las 48 h antes); SPF si le va a dar el sol.',
         '<b>Exfoliante:</b> 1–2 veces por semana para evitar pelos encarnados. La app te avisa si choca con el IPL.',
-        '<b>Crema y perfume:</b> crema de vainilla con la piel húmeda y Good Girl encima: dura más y se refuerzan. La de avena, para los días sin IPL.',
+        '<b>Perfume:</b> tu familia es floral con fondo de vainilla y ámbar. Carolina Herrera para eventos, Cool de Saphir a diario y las brumas debajo para que dure. Las combinaciones están en Perfumes.',
         '<b>Después del Box:</b> fuera la ropa sudada, ducha templada y crema en los primeros minutos. Los pasos están en Rutinas.',
       ],
     },

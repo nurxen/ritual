@@ -502,3 +502,10 @@ body.has-timers .toast { bottom: calc(env(safe-area-inset-bottom) + 170px); }
 .wk-sec { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--muted); margin-top: 6px; }
 .kpis.money b { font-size: 24px; white-space: nowrap; }
 .wk-grid b.center { font-size: 11px; }
+
+/* v11 · días IPL */
+.ipl-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.ipl-day { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 12px; background: var(--soft); text-align: center; }
+.ipl-day small { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; max-width: 100%; }
+.ipl-day.best { background: #CDEBD9; } .ipl-day.ok { background: #F6E7B8; } .ipl-day.no { background: var(--soft); opacity: .6; }
+.lvl.best { color: #5BB585; } .lvl.ok { color: #D9B44A; } .lvl.no { color: var(--muted); }

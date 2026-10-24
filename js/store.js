@@ -261,11 +261,44 @@ export function upcomingEvents(days = 60) {
     const late = t.data.due < today();
     out.push({ id: t.id, day: late ? today() : t.data.due, title: t.data.title, icon: '☐', kind: 'task', late, due: t.data.due });
   }
+  for (const e of events()) {
+    if (diffDays(e.date, today()) > days) continue;
+    out.push({ id: `ev-${e.id}`, day: e.date, title: e.title, icon: e.icon || '⭐', kind: 'event' });
+  }
   for (const g of itemsOf('goal')) {
     if (g.data.done || !g.data.deadline || diffDays(g.data.deadline, today()) > days || g.data.deadline < today()) continue;
     out.push({ id: g.id, day: g.data.deadline, title: `Objetivo: ${g.data.title}`, icon: '🎯', kind: 'goal' });
   }
   return out.sort((a, b) => a.day.localeCompare(b.day));
+}
+
+// ---------------- Eventos y entrenos ----------------
+export const events = () => (settings().events || []).filter(e => e.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+export async function removeEvent(id) {
+  const s = settings();
+  await saveSettings({ events: (s.events || []).filter(e => e.id !== id), eventsRemoved: [...new Set([...(s.eventsRemoved || []), id])] });
+}
+export const training = () => settings().training || [];
+export const trainingOn = day => training().find(t => t.dow === new Date(day + 'T12:00').getDay()) || null;
+// Fin del entreno de ese día (Date) o null
+export function trainingEnd(day) {
+  const t = trainingOn(day); if (!t?.time) return null;
+  const [h, m] = t.time.split(':').map(Number); const d = parseDay(day); d.setHours(h, (m || 0) + (Number(t.min) || 60)); return d;
+}
+// Días para IPL (por la noche, 21:00) en los próximos n.
+// best: ni entreno ese día ni al siguiente (24 h sin sudar después). ok: 12 h entre el entreno y el IPL. no: menos de 12 h.
+export function iplDays(n = 7) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = addDays(today(), i); const end = trainingEnd(d); const nx = trainingOn(addDays(d, 1));
+    const ipl = parseDay(d); ipl.setHours(21, 0);
+    let gapNext = Infinity;
+    if (nx?.time) { const [h, m] = nx.time.split(':').map(Number); const st = parseDay(addDays(d, 1)); st.setHours(h, m || 0); gapNext = (st - ipl) / 3600e3; }
+    const gapPrev = end ? (ipl - end) / 3600e3 : Infinity;
+    const level = gapPrev >= 24 && gapNext >= 24 ? 'best' : gapPrev >= 12 && gapNext >= 12 ? 'ok' : 'no';
+    out.push({ day: d, level, train: trainingOn(d) });
+  }
+  return out;
 }
 
 // ---------------- IPL: ¿se puede hoy? ----------------
@@ -449,11 +482,15 @@ function planMatches(plan) {
 export function planPreview(plan) {
   const m = planMatches(plan);
   const careKeys = new Set(itemsOf('care').map(i => i.data.key));
+  // Lo que ya te propuso una versión anterior y borraste no vuelve
+  const pva = planVersionApplied(plan);
+  const isNew = since => pva < (since || 1);
   return {
-    update: m.filter(x => x.ex), add: m.filter(x => !x.ex),
-    care: plan.care.filter(k => !careKeys.has(k)),
+    update: m.filter(x => x.ex), add: m.filter(x => !x.ex && (!x.pp.since || isNew(x.pp.since))),
+    care: plan.care.filter(k => !careKeys.has(k) && isNew(plan.careSince?.[k])),
     cats: plan.cats.filter(k => !S.cats.some(c => c.key === k)),
-    tasks: plan.tasks.filter(t => !tasks().some(x => x.data.title === t.title)),
+    tasks: plan.tasks.filter(t => isNew(t.since) && !tasks().some(x => x.data.title === t.title)),
+    perfumes: (plan.perfumes || []).length, combos: (plan.combos || []).filter(c => isNew(6) && !itemsOf('combo').some(x => x.data.name === c.name)),
     guide: plan.guide,
     remove: (plan.remove || []).flatMap(r => { const re = new RegExp(r.match, 'i'); return products().filter(p => re.test(`${p.data.name} ${p.data.brand || ''}`) && (!r.status || pStatus(p) === r.status)); }),
   };
@@ -468,7 +505,7 @@ export async function applyPlan(plan) {
   }
   const pv = planPreview(plan);
   for (const { pp, ex } of [...pv.update, ...pv.add]) {
-    const { match, ...fields } = pp;
+    const { match, since, ...fields } = pp;
     if (ex) {
       const d = ex.data;
       // Respeta el estado que hayas cambiado tú (p. ej. "Comprado"): solo se actualiza si sigue como lo dejó el plan
@@ -489,7 +526,19 @@ export async function applyPlan(plan) {
     const it = itemsOf('care').find(i => i.data.key === key);
     if (it) await saveItem(it, patch);
   }
-  for (const t of pv.tasks) await addItem('task', { title: t.title, prio: t.prio, est: t.est, due: t.dueToday ? today() : null, done: false });
+  for (const t of pv.tasks) await addItem('task', { title: t.title, prio: t.prio, est: t.est, due: t.due || (t.dueToday ? today() : null), done: false });
+  // Perfumes: actualiza la descripción salvo que la hayas cambiado tú; añade los que falten
+  const pfPool = itemsOf('perfume').slice();
+  for (const pf of plan.perfumes || []) {
+    const { match, ...f } = pf; const re = new RegExp(match, 'i');
+    const ex = pfPool.find(p => re.test(`${p.data.name} ${p.data.brand || ''}`));
+    if (ex) {
+      const d = ex.data;
+      const mine = d.planNote !== undefined && d.note !== d.planNote;
+      await saveItem(ex, mine ? { planNote: f.note } : { role: f.role, family: f.family, moments: f.moments, note: f.note, planNote: f.note });
+    } else if (planVersionApplied(plan) < 6) await addItem('perfume', { ...f, planNote: f.note });
+  }
+  for (const c of pv.combos) await addItem('combo', c);
   for (const gid of plan.guideRemove || []) {
     for (const it of itemsOf('guide').filter(i => i.data.gid === gid)) await deleteItem(it);
   }
@@ -507,6 +556,8 @@ export async function applyPlan(plan) {
   const s = settings();
   const extra = {};
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
+  if (plan.training && !s.training) extra.training = plan.training;
+  if (plan.events) extra.events = [...(s.events || []), ...plan.events.filter(e => !(s.events || []).some(x => x.id === e.id) && !(s.eventsRemoved || []).includes(e.id))];
   await saveSettings({
     ...extra,
     noBuy: [...new Set([...(plan.noBuy || []), ...(s.noBuy || [])])].filter(x => !(plan.noBuyRemove || []).includes(x)),

@@ -3,6 +3,7 @@ import {
   S, itemsOf, addItem, saveItem, deleteItem, careStatus, markCareDone, iplBlock, lastWorkout, products,
   productExpiry, routineProducts, checkRoutine, tagsFromIngredients, settings, saveSettings, catByKey, getVal, setVal,
   pStatus, pArea, shoppingList, refillBought, refillSkip, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
+  training, trainingOn, iplDays,
 } from './store.js';
 import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
 import {
@@ -167,7 +168,8 @@ function weekGrid(rot, order) {
     return out;
   };
   const coming = products().filter(p => pStatus(p) === 'wish' && (p.data.slot === 'pm' || p.data.slot === 'both') && !(p.data.pmDays || []).length);
-  if (!rot.length && !weekly.length) return '';
+  const tr = training();
+  if (!rot.length && !weekly.length && !tr.length) return '';
   const cell = (on, col, isToday) => `<span style="height:22px;border-radius:7px;background:${on ? col : 'var(--soft)'};${isToday ? 'outline:2px solid var(--ink);outline-offset:-2px' : ''}"></span>`;
   const head = `<span></span>${days.map(d => `<b class="center" style="${d === t ? 'color:var(--c-ink)' : ''}">${d === t ? 'Hoy' : DOW_SHORT[dowOf(d)]}</b>`).join('')}`;
   const short = s => { s = s.replace(/ \(.*\)/, ''); return s.length > 22 ? s.slice(0, 21) + '…' : s; };
@@ -176,6 +178,7 @@ function weekGrid(rot, order) {
     <div class="wk-grid">${head}
       ${rot.length ? `<span class="wk-sec">Noches</span>` : ''}
       ${rot.map(p => label(esc(short(p.data.brand || p.data.name)), pStatus(p) === 'wish' ? '🛒 cuando llegue' : '') + days.map(d => cell(p.data.pmDays.includes(dowOf(d)), 'var(--c)', d === t)).join('')).join('')}
+      ${tr.length ? `<span class="wk-sec">Entreno</span>${label('🏋️ Entreno', tr.length ? [...new Set(tr.map(x => x.time))].join(' / ') : '')}${days.map(d => cell(!!trainingOn(d), '#9CCFB5', d === t)).join('')}` : ''}
       ${weekly.length ? `<span class="wk-sec">Cuidados</span>` : ''}
       ${weekly.map(it => { const ds = careDays(it); return label(`${esc(it.data.icon || '')} ${esc(short(it.data.name))}`) + days.map(d => cell(ds.has(d), CARE_GROUP_COLORS[it.data.group] || 'var(--c)', d === t)).join(''); }).join('')}
     </div>
@@ -284,6 +287,11 @@ function ipl(root) {
       ${lw ? `<p class="small">Último entreno registrado: ${lw.toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
     </section>
 
+    ${training().length ? `<section class="card">
+      <h3>Tus mejores noches para IPL</h3>
+      <div class="ipl-days">${iplDays(7).map(d => `<span class="ipl-day ${d.level}"><b>${d.day === today() ? 'Hoy' : DOW_SHORT[new Date(d.day + 'T12:00').getDay()]}</b><small>${d.day.slice(8)}</small>${d.train ? `<small>🏋️ ${esc(d.train.time || '')}</small>` : '<small>—</small>'}</span>`).join('')}</div>
+      <p class="small muted mt-s"><b class="lvl best">●</b> Ideal: ni entreno ese día ni al siguiente. <b class="lvl ok">●</b> Vale: 12 h entre entreno e IPL. <b class="lvl no">●</b> Mejor no. Tu horario se cambia en Mi perfil.</p>
+    </section>` : ''}
     <section class="card">
       <h3>Planifica entreno + IPL</h3>
       <ul class="tips">

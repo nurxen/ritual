@@ -15,7 +15,7 @@ export function gcalLink(ev) {
   });
   return `https://calendar.google.com/calendar/render?${p}`;
 }
-const evColor = ev => ev.kind === 'care' ? (CARE_GROUP_COLORS[ev.group] || '#CFC7BE') : ev.kind === 'goal' ? '#F2CF7E' : '#A7BCEB';
+const evColor = ev => ev.kind === 'event' ? '#E8C979' : ev.kind === 'care' ? (CARE_GROUP_COLORS[ev.group] || '#CFC7BE') : ev.kind === 'goal' ? '#F2CF7E' : '#A7BCEB';
 
 export function renderAgenda(view, sub = 'calendario') {
   view.innerHTML = `${topbar()}
