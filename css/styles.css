@@ -306,9 +306,9 @@ input[type=color] { width: 38px; height: 38px; border: 0; padding: 0; background
 .gcal { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); font-size: 13px; font-weight: 800; text-decoration: none; flex: none; }
 
 .task { gap: 12px; }
-.task .checkbox { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--line); display: grid; place-items: center; color: transparent; flex: none; }
-.task .checkbox .ic { width: 16px; height: 16px; }
-.task .checkbox.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.task .checkbox, .ag-item .checkbox { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--line); display: grid; place-items: center; color: transparent; flex: none; }
+.task .checkbox .ic, .ag-item .checkbox .ic { width: 16px; height: 16px; }
+.task .checkbox.on, .ag-item .checkbox.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .task.is-done .grow > div:first-child { text-decoration: line-through; color: var(--muted); }
 .quick-add { display: flex; flex-direction: column; gap: 10px; }
 .quick-add .row > * { flex: 1; min-width: 0; }
@@ -513,3 +513,34 @@ body.has-timers .toast { bottom: calc(env(safe-area-inset-bottom) + 170px); }
 .plan-row:last-child { border-bottom: 0; }
 details.why summary { cursor: pointer; list-style: none; }
 details.why summary::before { content: '▸ '; } details.why[open] summary::before { content: '▾ '; }
+
+/* v12 · agenda por días */
+.ag-day h3 { margin: 0 0 6px; font-size: 16px; }
+.ag-day.big { border: 2px solid color-mix(in srgb, var(--pc) 55%, transparent); }
+.ag-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.ag-item:first-of-type { border-top: 0; }
+.ag-item > .checkbox, .ag-item > .btn, .ag-dot { flex: none; margin-top: 2px; }
+.ag-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); margin: 5px 6px 0; }
+.ag-item .grow { min-width: 0; }
+.ag-item .gcal { flex: none; }
+.ag-item details.why p { margin: 4px 0 0; }
+.cday { position: relative; }
+.cday .cnt { position: absolute; top: -5px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--ink); color: var(--surface); font-size: 10px; line-height: 16px; font-weight: 800; }
+.cday .pd { position: absolute; bottom: 5px; width: 6px; height: 6px; border-radius: 50%; background: #EFA3AE; }
+.cday.sel { outline: 2.5px solid var(--pc); outline-offset: 1px; }
+
+/* v12 · hábitos agrupados */
+.sub-head { font-size: 13px; font-weight: 800; color: var(--muted); margin: 14px 2px 8px; text-transform: uppercase; letter-spacing: .04em; }
+details.done-wrap > summary { cursor: pointer; list-style: none; }
+details.done-wrap > summary::before { content: '▸ '; } details.done-wrap[open] > summary::before { content: '▾ '; }
+.minis { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: color-mix(in srgb, var(--c) 18%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--c) 35%, transparent); font-size: 13px; max-width: 100%; }
+.mini b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini i { font-style: normal; font-weight: 800; color: var(--c-ink, var(--ink)); }
+.mini small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.mini.done { background: color-mix(in srgb, var(--c) 45%, var(--surface)); }
+.plan-task .due { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.12); color: #CFC7BE; vertical-align: 1px; }
+.plan-task .due.late { background: #EFA3AE; color: #3a2a2a; }
+.plan-next { display: flex; gap: 10px; padding: 6px 0; font-size: 14px; color: #CFC7BE; text-decoration: none; }
+.plan-next b { flex: none; min-width: 58px; color: #F2EDE6; }
+.streak-num small { font-size: 12px; font-weight: 700; }

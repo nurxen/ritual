@@ -152,19 +152,67 @@ export function isDone(cat, v) {
 // "Hábitos" que cuentan para el % del día (excluye notas, escala y dinero)
 export const isHabit = c => !['text', 'scale', 'money'].includes(c.type);
 
+// ---- Frecuencia de cada hábito: daily | week:N | train (los días que entrenas) | log (solo registro, sin racha)
+const FREQ_DEFAULT = { period: 'log', hair_wash: 'week:3', shave: 'week:2', scalp: 'week:2' };
+export const FREQ_LABEL = f => f === 'log' ? 'Solo registro' : f === 'train' ? 'Los días que entrenas' : f?.startsWith('week:') ? `${f.slice(5)} veces por semana` : 'Cada día';
+export function freqOf(c) {
+  const f = c.config?.freq; if (f) return f;
+  if (c.type === 'exercise' || c.key === 'whey') return (settings().training || []).length ? 'train' : (c.type === 'exercise' ? 'week:3' : 'daily');
+  return FREQ_DEFAULT[c.key] || 'daily';
+}
+const wkStart = d => addDays(d, -((parseDay(d).getDay() + 6) % 7));
+const trainDay = d => (settings().training || []).some(t => t.dow === parseDay(d).getDay());
+// Veces hechas esta semana (lunes a domingo) hasta el día d incluido
+export function weekCount(c, d = today()) {
+  let n = 0; for (let x = wkStart(d); x <= d; x = addDays(x, 1)) if (isDone(c, getVal(c.id, x))) n++;
+  return n;
+}
+// ¿Toca ese día? (para pendientes y para el % del día)
+export function expectedOn(c, d = today()) {
+  if (!isHabit(c)) return false;
+  const f = freqOf(c);
+  if (f === 'log') return false;
+  if (f === 'train') return trainDay(d);
+  if (f.startsWith('week:')) {
+    // Toca si aún no llevas las N de la semana y, o bien ha pasado el hueco normal desde la última vez (3/sem → cada 2 días),
+    // o bien ya no te quedan días para llegar sin hacerlo hoy
+    const N = Number(f.slice(5)) || 1; const before = d === wkStart(d) ? 0 : weekCount(c, addDays(d, -1));
+    if (before >= N) return false;
+    let last = null; for (let k = 1; k <= 14; k++) { const x = addDays(d, -k); if (isDone(c, getVal(c.id, x))) { last = x; break; } }
+    const left = 7 - diffDays(d, wkStart(d));
+    return !last || diffDays(d, last) >= Math.floor(7 / N) || left <= N - before;
+  }
+  return true;
+}
 export function dayCompletion(day) {
-  const hs = activeCats().filter(isHabit);
+  const hs = activeCats().filter(c => expectedOn(c, day));
   if (!hs.length) return 0;
   return hs.filter(c => isDone(c, getVal(c.id, day))).length / hs.length;
 }
-
-export function streak(cat) {
-  let d = today(); let n = 0;
-  if (!isDone(cat, getVal(cat.id, d))) d = addDays(d, -1);
-  while (isDone(cat, getVal(cat.id, d))) { n++; d = addDays(d, -1); }
+// Racha según la frecuencia: días seguidos, entrenos seguidos o semanas seguidas cumpliendo
+export const streakUnit = c => { const f = freqOf(c); return f === 'train' ? 'entrenos' : f.startsWith('week:') ? 'sem' : f === 'log' ? '' : 'd'; };
+function runStreak(cat, from, maxBack = 400) {
+  const f = freqOf(cat); if (f === 'log') return 0;
+  const done = d => isDone(cat, getVal(cat.id, d));
+  let n = 0;
+  if (f.startsWith('week:')) {
+    const N = Number(f.slice(5)) || 1; let w = wkStart(from);
+    if (weekCount(cat, from) >= N) n++;
+    for (let k = 0; k < 60; k++) { w = addDays(w, -7); if (weekCount(cat, addDays(w, 6)) >= N) n++; else break; }
+    return n;
+  }
+  let d = from;
+  if (!done(d)) d = addDays(d, -1);
+  for (let k = 0; k < maxBack; k++, d = addDays(d, -1)) {
+    if (f === 'train' && !trainDay(d)) { if (done(d)) n++; continue; } // entrenar un día extra suma, no rompe
+    if (done(d)) n++; else break;
+  }
   return n;
 }
+export function streak(cat) { return runStreak(cat, today()); }
 export function bestStreak(cat) {
+  const f = freqOf(cat);
+  if (f !== 'daily') return Math.max(streak(cat), cat.config?.best || 0);
   const days = [...S.entries.values()].filter(e => e.category_id === cat.id && isDone(cat, e.value)).map(e => e.day).sort();
   let best = 0, cur = 0, prev = null;
   for (const d of days) { cur = prev && diffDays(d, prev) === 1 ? cur + 1 : 1; best = Math.max(best, cur); prev = d; }
@@ -251,17 +299,19 @@ export function upcomingEvents(days = 60) {
     const st = careStatus(i);
     if (st.unset || diffDays(st.next, today()) > days) continue;
     const day = st.next < today() ? today() : st.next;
-    out.push({ id: i.id, day, title: i.data.name, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
+    // ya hay una tarea que es lo mismo a menos de 2 semanas: no lo repitas
+    if (CARE_TASK[i.data.key] && tasks().some(t => !t.data.done && t.data.due && CARE_TASK[i.data.key].test(t.data.title) && Math.abs(diffDays(t.data.due, day)) <= 14)) continue;
+    out.push({ id: i.id, careId: i.id, day, title: i.data.name, icon: i.data.icon || '•', kind: 'care', group: i.data.group, late: st.tone === 'warn' });
   }
   // IPL, prueba, rasurado y exfoliante: días elegidos según entrenos, salidas y esperas
   for (const e of bp.items) {
     if (diffDays(e.day, today()) > days) continue;
-    out.push({ id: `bp-${e.kind}-${e.day}`, day: e.day, title: `${e.title}${e.time ? ` · ${e.time}` : ''}`, icon: e.icon, kind: 'care', group: e.kind === 'scrub' || e.kind === 'shave' ? 'cuerpo' : 'ipl', time: e.time, min: e.min });
+    out.push({ id: `bp-${e.kind}-${e.day}`, careId: e.care?.id, why: e.why, day: e.day, title: `${e.title}${e.time ? ` · ${e.time}` : ''}`, icon: e.icon, kind: 'care', group: e.kind === 'scrub' || e.kind === 'shave' ? 'cuerpo' : 'ipl', time: e.time, min: e.min });
   }
   for (const t of itemsOf('task')) {
     if (t.data.done || !t.data.due || diffDays(t.data.due, today()) > days) continue;
     const late = t.data.due < today();
-    out.push({ id: t.id, day: late ? today() : t.data.due, title: t.data.title, icon: '☐', kind: 'task', late, due: t.data.due });
+    out.push({ id: t.id, day: late ? today() : t.data.due, title: t.data.title, icon: '', kind: 'task', late, due: t.data.due });
   }
   for (const e of events()) {
     if (diffDays(e.date, today()) > days) continue;
@@ -746,9 +796,19 @@ export function goalHabit(g) {
 }
 
 // ---------------- Tareas / plan del día ----------------
+// Próximas tareas con fecha (para "Lo que viene")
+export const upcomingTasks = (n = 3) => tasks().filter(t => !t.data.done && t.data.due && t.data.due > today()).sort((a, b) => a.data.due.localeCompare(b.data.due)).slice(0, n);
+// Si una tarea es lo mismo que un calendario de cuidado (p. ej. "Manicura" y "Manicura limpia"), al hacerla se marca también el cuidado
+const CARE_TASK = { nails: /manicura|uñas/i, hair_cut: /puntas|peluquer/i, deep_wash: /lavado a fondo/i, hair_mask: /mascarilla.*pelo|pelo y mascarilla/i };
+export const careForTask = t => itemsOf('care').find(c => CARE_TASK[c.data.key]?.test(t.data.title));
+export async function completeTask(t, done = true) {
+  await saveItem(t, { done, doneAt: done ? today() : null });
+  const c = done && careForTask(t);
+  if (c && c.data.last !== today()) await markCareDone(c);
+}
 export const tasks = () => itemsOf('task');
 export function dayPlan() {
-  const open = tasks().filter(t => !t.data.done)
+  const open = tasks().filter(t => !t.data.done && (!t.data.due || t.data.due <= today()))
     .sort((a, b) => (a.data.due || '9999') .localeCompare(b.data.due || '9999') || (a.created_at || '').localeCompare(b.created_at || ''));
   const used = new Set();
   const take = (pred, n) => { const r = open.filter(t => !used.has(t.id) && pred(t)).slice(0, n); r.forEach(t => used.add(t.id)); return r; };

@@ -1,7 +1,7 @@
 // Progreso en pestañas: Semana, Rachas, Ejercicio, Datos
 import {
   S, activeCats, getVal, isDone, isHabit, streak, bestStreak, itemsOf, careStatus, products, productExpiry,
-  correlations, catByKey, dayCompletion, upcomingEvents,
+  correlations, catByKey, dayCompletion, upcomingEvents, freqOf, FREQ_LABEL, streakUnit,
 } from './store.js';
 import { esc, $, today, addDays, diffDays, fmtShort, eur, num, parseDay, MONTHS } from './ui.js';
 import { sectionColor, CARE_GROUP_COLORS } from './data.js';
@@ -70,11 +70,12 @@ function heatmap(cat) {
   }
   return `<div class="heat">${cols.join('')}</div>`;
 }
+const UNIT_L = { d: 'días', sem: 'semanas', entrenos: 'entrenos', '': '' };
 function rachas(root) {
   const cats = activeCats();
   const cat = cats.find(c => c.id === heatCat);
   const col = cat ? sectionColor(cat.section) : 'var(--pc)';
-  const streaks = cats.filter(isHabit).map(c => ({ c, s: streak(c), b: bestStreak(c) })).sort((a, b) => b.s - a.s || b.b - a.b);
+  const streaks = cats.filter(c => isHabit(c) && freqOf(c) !== 'log').map(c => ({ c, s: streak(c), b: bestStreak(c) })).sort((a, b) => b.s - a.s || b.b - a.b);
   root.innerHTML = `
     <section class="card" style="--c:${col}">
       <h3>Mapa de 16 semanas</h3>
@@ -83,8 +84,8 @@ function rachas(root) {
       <div class="heat-legend"><span>menos</span><i></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i><span>más</span></div>
     </section>
     <section class="card list">${streaks.map(({ c, s, b }) => `<div class="streak-row" style="--c:${sectionColor(c.section)}">
-      <span class="ci">${esc(c.icon)}</span><span class="grow"><b>${esc(c.name)}</b><br><span class="small muted">récord ${b} días</span></span>
-      <span class="streak-num">${s ? `${s}🔥` : '0'}</span></div>`).join('') || '<p class="muted">Sin hábitos.</p>'}</section>`;
+      <span class="ci">${esc(c.icon)}</span><span class="grow"><b>${esc(c.name)}</b><br><span class="small muted">${FREQ_LABEL(freqOf(c))} · récord ${b} ${UNIT_L[streakUnit(c)]}</span></span>
+      <span class="streak-num">${s ? `${s}🔥` : '0'}<small class="muted"> ${streakUnit(c) === 'd' ? '' : streakUnit(c)}</small></span></div>`).join('') || '<p class="muted">Sin hábitos.</p>'}</section>`;
   $('#heatSel', root).onchange = e => { heatCat = e.target.value || null; rerender(); };
 }
 

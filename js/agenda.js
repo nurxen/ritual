@@ -1,8 +1,9 @@
 // Agenda: calendario del mes, próximos eventos (con Google Calendar) y tareas
 import {
   S, activeCats, getVal, isDone, dayCompletion, itemsOf, addItem, saveItem, deleteItem, tasks, catByKey, upcomingEvents,
+  completeTask, markCareDone,
 } from './store.js';
-import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, parseDay, dayStr, fmtShort, MONTHS, formData } from './ui.js';
+import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, parseDay, dayStr, fmtShort, MONTHS, formData } from './ui.js';
 import { CARE_GROUP_COLORS } from './data.js';
 import { topbar, rerender, go } from './app.js';
 
@@ -26,7 +27,33 @@ export function renderAgenda(view, sub = 'calendario') {
 }
 
 // ------------------------------------------------------------ CALENDARIO
-let calMonth = null; let calCat = 'all';
+const DOWL = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MON3 = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const dayName = ds => { const d = parseDay(ds); return `${DOWL[d.getDay()]} ${d.getDate()} ${MON3[d.getMonth()]}`; };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+export function dayTitle(ds) {
+  const n = diffDays(ds, today());
+  if (n === 0) return `Hoy · ${dayName(ds)}`;
+  if (n === 1) return `Mañana · ${dayName(ds)}`;
+  if (n === -1) return `Ayer · ${dayName(ds)}`;
+  return `${cap(dayName(ds))}${n > 1 ? ` · en ${n} días` : ''}`;
+}
+const KIND_TAG = ev => ev.kind === 'task' ? 'Tarea' : ev.kind === 'event' ? 'Evento' : ev.kind === 'goal' ? 'Objetivo' : ev.group === 'ipl' ? 'IPL' : 'Cuidado';
+function evRow(ev) {
+  const t = ev.kind === 'task' ? S.items.find(i => i.id === ev.id) : null;
+  const act = t ? `<button class="checkbox" data-agtask="${t.id}" aria-label="Hecha">${icon('check')}</button>`
+    : ev.careId && ev.day === today() ? `<button class="btn tiny" data-agcare="${ev.careId}">Hecho</button>` : `<span class="ag-dot"></span>`;
+  const meta = [KIND_TAG(ev), ev.time ? `desde las ${ev.time}` : '', ev.min ? `${ev.min} min` : '', ev.late ? `<b class="warn-text">${ev.kind === 'task' ? `vencida el ${fmtShort(ev.due)}` : 'atrasado'}</b>` : ''].filter(Boolean).join(' · ');
+  return `<div class="ag-item" style="--c:${evColor(ev)}">${act}
+    <div class="grow"><div>${ev.icon ? esc(ev.icon) + ' ' : ''}${esc(ev.title.replace(/ · \d\d:\d\d$/, ''))}</div><div class="small muted">${meta}</div>
+    ${ev.why ? `<details class="why"><summary class="small muted">Por qué este día</summary><p class="small muted">${esc(ev.why)}</p></details>` : ''}</div>
+    <a class="gcal" href="${gcalLink(ev)}" target="_blank" rel="noopener" title="Añadir a Google Calendar" aria-label="Añadir a Google Calendar">G+</a></div>`;
+}
+function dayCard(ds, evs, big) {
+  return `<section class="card ag-day ${big ? 'big' : ''}"><h3>${dayTitle(ds)}</h3>
+    ${evs.length ? evs.map(evRow).join('') : '<p class="small muted">Nada programado.</p>'}</section>`;
+}
+let calMonth = null; let calCat = 'all'; let selDay = null; let moreDays = false;
 function calendario(root) {
   if (!calMonth) { const d = new Date(); calMonth = [d.getFullYear(), d.getMonth()]; }
   const [y, m] = calMonth;
@@ -36,44 +63,62 @@ function calendario(root) {
   const cat = cats.find(c => c.id === calCat);
   const logs = itemsOf('carelog');
   const evs = upcomingEvents(400);
+  const on = ds => evs.filter(e => e.day === ds);
   const period = catByKey('period');
+  const t = today(); const tm = addDays(t, 1);
   const cells = Array.from({ length: startOffset }, () => '<div class="cday empty"></div>');
   for (let d = 1; d <= daysIn; d++) {
-    const ds = dayStr(new Date(y, m, d)); const future = ds > today();
+    const ds = dayStr(new Date(y, m, d)); const future = ds > t;
     let lv = 0;
     if (!future) {
       if (cat) { const v = getVal(cat.id, ds); lv = cat.type === 'scale' ? (v ? Math.ceil(v / 5 * 4) : 0) : (isDone(cat, v) ? 4 : 0); }
       else lv = Math.ceil(dayCompletion(ds) * 4);
     }
-    const mk = [];
-    logs.filter(l => l.data.day === ds).slice(0, 2).forEach(l => mk.push(`<i class="mk" style="--c:${CARE_GROUP_COLORS[l.data.group] || '#CFC7BE'}"></i>`));
-    if (period && getVal(period.id, ds)) mk.push('<i class="mk" style="--c:#EFA3AE"></i>');
-    evs.filter(e => e.day === ds).slice(0, 2).forEach(e => mk.push(`<i class="mk" style="--c:${evColor(e)}"></i>`));
-    cells.push(`<button class="cday l${lv} ${ds === today() ? 'today' : ''} ${future ? 'future' : ''}" data-day="${ds}"><span>${d}</span><span class="mks">${mk.slice(0, 3).join('')}</span></button>`);
+    const n = future || ds === t ? on(ds).length : 0;
+    cells.push(`<button class="cday l${lv} ${ds === t ? 'today' : ''} ${future ? 'future' : ''} ${ds === selDay ? 'sel' : ''}" data-day="${ds}"><span>${d}</span>${n ? `<span class="cnt">${n}</span>` : ''}${period && getVal(period.id, ds) ? '<i class="pd"></i>' : ''}</button>`);
   }
-  const soon = upcomingEvents(30);
+  const next = [];
+  for (let i = 2; i <= (moreDays ? 30 : 9); i++) { const ds = addDays(t, i); const l = on(ds); if (l.length) next.push(dayCard(ds, l)); }
+  let sel = '';
+  if (selDay && selDay !== t && selDay !== tm) {
+    if (selDay > t) sel = `<div id="selDay">${dayCard(selDay, on(selDay), true)}</div>`;
+    else {
+      const done = logs.filter(l => l.data.day === selDay);
+      const hs = activeCats().filter(c => isDone(c, getVal(c.id, selDay)));
+      sel = `<section class="card ag-day big" id="selDay"><h3>${dayTitle(selDay)}</h3>
+        <p class="small">${hs.length ? `Hecho: ${hs.map(c => esc(c.icon)).join(' ')}` : 'No apuntaste hábitos.'}</p>
+        ${done.length ? `<p class="small">Cuidados: ${done.map(l => esc(l.data.name)).join(', ')}</p>` : ''}
+        <button class="btn ghost block" id="editDay">Ver o editar ese día</button></section>`;
+    }
+  }
   root.innerHTML = `
+    ${dayCard(t, on(t), true)}
+    ${dayCard(tm, on(tm))}
+    <div class="section-head"><h2>Próximos días</h2><a href="#/ajustes/calendario">Google Calendar</a></div>
+    ${next.join('') || '<p class="muted small">Nada más en estos días.</p>'}
+    <button class="btn ghost block" id="moreD">${moreDays ? 'Ver menos' : 'Ver hasta 30 días'}</button>
+    <div class="section-head"><h2>Mes</h2></div>
     <section class="card">
       <div class="row between"><button class="icon-btn" id="pm" aria-label="Mes anterior">${icon('left')}</button>
         <h2 class="cap">${MONTHS[m]} ${y}</h2><button class="icon-btn" id="nm" aria-label="Mes siguiente">${icon('right')}</button></div>
-      <select class="input mt-s" id="calCat"><option value="all">Color: % de hábitos del día</option>
-        ${cats.map(c => `<option value="${c.id}" ${c.id === calCat ? 'selected' : ''}>Color: ${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
       <div class="cal-head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span>${d}</span>`).join('')}</div>
       <div class="cal">${cells.join('')}</div>
-      <div class="legend"><span><i class="mk" style="--c:${CARE_GROUP_COLORS.ipl}"></i>IPL</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.pelo}"></i>Pelo</span><span><i class="mk" style="--c:${CARE_GROUP_COLORS.tinte}"></i>Tinte</span>${period ? '<span><i class="mk" style="--c:#EFA3AE"></i>Periodo</span>' : ''}<span><i class="mk" style="--c:#A7BCEB"></i>Tarea</span></div>
-      <p class="small muted mt-s">Toca un día pasado para ver o editar sus hábitos.</p>
+      <p class="small muted mt-s">Toca un día para ver qué hay. El número es cuántas cosas tienes ese día; el color de los días pasados, cuánto cumpliste.</p>
+      <select class="input mt-s" id="calCat"><option value="all">Color: % de hábitos del día</option>
+        ${cats.map(c => `<option value="${c.id}" ${c.id === calCat ? 'selected' : ''}>Color: ${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
     </section>
-    <div class="section-head"><h2>Próximos 30 días</h2><a href="#/ajustes/calendario">Google Calendar</a></div>
-    <section class="card list">${soon.length ? soon.map(ev => {
-      const d = parseDay(ev.day);
-      return `<div class="event" style="--c:${evColor(ev)}"><div class="ev-date"><b>${d.getDate()}</b><span>${ev.day === today() ? 'hoy' : DOW[d.getDay()]}</span></div>
-        <span class="ev-bar"></span><div class="grow"><div>${esc(ev.icon)} ${esc(ev.title)}</div>${ev.late ? `<div class="small warn-text">${ev.kind === 'task' ? `Vencida el ${fmtShort(ev.due)}` : 'Atrasado'}</div>` : ''}</div>
-        <a class="gcal" href="${gcalLink(ev)}" target="_blank" rel="noopener" title="Añadir a Google Calendar" aria-label="Añadir a Google Calendar">G+</a></div>`;
-    }).join('') : '<p class="muted small">Nada programado. Los calendarios de cuidado aparecen aquí cuando les pones una fecha de última vez.</p>'}</section>`;
+    ${sel}`;
   $('#pm', root).onclick = () => { calMonth = m === 0 ? [y - 1, 11] : [y, m - 1]; rerender(); };
   $('#nm', root).onclick = () => { calMonth = m === 11 ? [y + 1, 0] : [y, m + 1]; rerender(); };
   $('#calCat', root).onchange = e => { calCat = e.target.value; rerender(); };
-  $$('.cday[data-day]', root).forEach(b => b.onclick = () => { if (b.classList.contains('future')) return; S.date = b.dataset.day; go('#/hoy'); });
+  $('#moreD', root).onclick = () => { moreDays = !moreDays; rerender(); };
+  $$('.cday[data-day]', root).forEach(b => b.onclick = () => {
+    selDay = b.dataset.day; rerender();
+    setTimeout(() => document.getElementById('selDay')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+  });
+  $('#editDay', root)?.addEventListener('click', () => { S.date = selDay; go('#/hoy'); });
+  $$('[data-agtask]', root).forEach(b => b.onclick = async () => { b.classList.add('on'); await completeTask(S.items.find(i => i.id === b.dataset.agtask)); toast('Tarea hecha'); setTimeout(rerender, 300); });
+  $$('[data-agcare]', root).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.agcare)); toast('Registrado'); rerender(); });
 }
 
 // ------------------------------------------------------------ TAREAS
@@ -109,7 +154,7 @@ function tareas(root) {
   };
   $$('[data-tg]', root).forEach(b => b.onclick = async () => {
     const t = S.items.find(i => i.id === b.dataset.tg);
-    await saveItem(t, { done: !t.data.done, doneAt: !t.data.done ? today() : null }); rerender();
+    await completeTask(t, !t.data.done); rerender();
   });
   $$('[data-ed]', root).forEach(b => b.onclick = () => taskEdit(S.items.find(i => i.id === b.dataset.ed)));
   $('#tgDone', root)?.addEventListener('click', () => { showDone = !showDone; rerender(); });

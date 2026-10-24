@@ -6,6 +6,7 @@ import {
   dayPlan, saveItem, loadWeather, weatherTips, settings, saveSettings, catByKey, streak,
   postIpl, scrubBlock, lipsPlan, planApplied, focusCats, minutesOf, unsetCare,
   events, removeEvent, trainingOn, training, bodyPlan, outDays,
+  expectedOn, freqOf, weekCount, streakUnit, upcomingTasks, completeTask,
 } from './store.js';
 import { PLANS } from './plans.js';
 import {
@@ -259,15 +260,33 @@ function tileValue(c, v) {
     default: return '';
   }
 }
+function freqSub(c, day) {
+  const f = freqOf(c);
+  if (f.startsWith('week:')) return `${weekCount(c, day)}/${f.slice(5)} esta semana`;
+  if (f === 'train') return trainingOn(day) ? 'Hoy entrenas' : 'Hoy no toca';
+  return '';
+}
 function tile(c, day) {
   const v = getVal(c.id, day); const done = isDone(c, v);
-  const st = c.type === 'bool' && day === today() ? streak(c) : 0;
+  const st = isHabit(c) && day === today() ? streak(c) : 0; const un = streakUnit(c);
   const wide = c.type === 'text' || c.type === 'exercise';
+  const fs = freqSub(c, day);
   return `<button class="tile ${done ? 'done' : ''} ${wide ? 'wide' : ''}" data-tile="${c.id}" style="--c:${sectionColor(c.section)}">
     <div class="t-top"><span class="t-emoji">${esc(c.icon || '•')}</span>${['bool', 'bool_minutes'].includes(c.type) || (done && c.type !== 'text') ? `<span class="t-check">${icon('check')}</span>` : ''}</div>
-    <span class="t-name">${esc(c.name)}</span>${tileValue(c, v)}
-    ${st >= 3 ? `<span class="t-streak">🔥${st}</span>` : ''}
+    <span class="t-name">${esc(c.name)}</span>${tileValue(c, v)}${fs ? `<span class="t-sub">${fs}</span>` : ''}
+    ${st >= (un === 'd' ? 3 : 2) ? `<span class="t-streak">🔥${st}${un === 'd' ? '' : ` ${un}`}</span>` : ''}
   </button>`;
+}
+// Botón compacto para registros y hábitos que hoy no tocan
+function mini(c, day) {
+  const v = getVal(c.id, day); const done = isDone(c, v);
+  let val = '';
+  if (c.type === 'scale' && v) val = '●'.repeat(Number(v)) ;
+  else if (c.type === 'money' && v) val = eur(v.amount);
+  else if (c.type === 'text' && v) val = '✓';
+  else if (done) val = '✓';
+  const fs = freqSub(c, day);
+  return `<button class="mini ${done ? 'done' : ''}" data-tile="${c.id}" style="--c:${sectionColor(c.section)}"><span>${esc(c.icon || '•')}</span><b>${esc(c.name)}</b>${val ? `<i>${val}</i>` : ''}${fs && !done ? `<small>${fs}</small>` : ''}</button>`;
 }
 
 // Hoja para apuntar un hábito que no es sí/no
@@ -349,8 +368,9 @@ function ring(p) {
     <circle cx="46" cy="46" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/>
     <text x="46" y="53" text-anchor="middle">${Math.round(p * 100)}%</text></svg>`;
 }
+const dueLbl = d => !d ? '' : d < today() ? `<span class="due late">vencida ${Number(d.slice(8))}/${Number(d.slice(5, 7))}</span>` : d === today() ? '<span class="due">hoy</span>' : `<span class="due">${fmtShortD(d)}</span>`;
 function taskLine(t, dot) {
-  return `<button class="plan-task" data-task="${t.id}"><span class="pdot ${dot}"></span><span class="grow">${esc(t.data.title)}</span>${t.data.est ? `<span class="est">${t.data.est}′</span>` : ''}<span class="tick">${icon('check')}</span></button>`;
+  return `<button class="plan-task" data-task="${t.id}"><span class="pdot ${dot}"></span><span class="grow">${esc(t.data.title)}${dueLbl(t.data.due)}</span>${t.data.est ? `<span class="est">${t.data.est}′</span>` : ''}<span class="tick">${icon('check')}</span></button>`;
 }
 function planCard() {
   const s = settings();
@@ -360,15 +380,16 @@ function planCard() {
   const focus = focusCats().map(c => ({ c, min: minutesOf(c, getVal(c.id, today())), goal: Number(c.target) || Number(s.focusGoal) || 30 }));
   const free = Number(s.todayFree?.day === today() ? s.todayFree.min : s.freeTime) || 0;
   const all = [...red, ...orange, ...green];
-  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + Math.max(0, s.exerciseGoal - exMin) + focus.reduce((a, f) => a + Math.max(0, f.goal - f.min), 0);
+  const need = all.reduce((a, t) => a + (Number(t.data.est) || 0), 0) + (exCat && expectedOn(exCat, today()) ? Math.max(0, s.exerciseGoal - exMin) : 0) + focus.reduce((a, f) => a + Math.max(0, f.goal - f.min), 0);
   const q = QUOTES[parseDay(today()).getDate() % QUOTES.length];
   const group = (label, list, dot) => `<div class="plan-group"><p class="plan-label">${label}</p>${list.map(t => taskLine(t, dot)).join('') || '<p class="small" style="color:#A8A29A">Nada aquí</p>'}</div>`;
   return `<section class="card plan">
     <div class="row between"><h2>Plan de hoy</h2><button class="btn tiny free" id="freeBtn">⏳ ${free} min libres</button></div>
     ${all.length ? `${group('🔴 No lo pospongas', red, 'r')}${group('🟠 Importantes', orange, 'o')}${group('🟢 Pequeñas', green, 'g')}`
       : '<p class="note-line">No tienes tareas pendientes. <a href="#/agenda/tareas">Añade alguna</a> y aquí verás tu plan.</p>'}
+    ${(() => { const up = upcomingTasks(3); return up.length ? `<div class="plan-group"><p class="plan-label">📅 Lo que viene (no es para hoy)</p>${up.map(t => `<a class="plan-next" href="#/agenda"><b>${fmtShortD(t.data.due)}</b><span>${esc(t.data.title)}</span></a>`).join('')}</div>` : ''; })()}
     <div class="plan-goals">
-      <button class="goal-chip" data-open="${exCat?.id || ''}"><b>${exMin}/${s.exerciseGoal}′</b><span>🏋️ Ejercicio</span><div class="bar"><i style="width:${Math.min(100, exMin / s.exerciseGoal * 100)}%"></i></div></button>
+      ${exCat && expectedOn(exCat, today()) ? `<button class="goal-chip" data-open="${exCat?.id || ''}"><b>${exMin}/${s.exerciseGoal}′</b><span>🏋️ Ejercicio</span><div class="bar"><i style="width:${Math.min(100, exMin / s.exerciseGoal * 100)}%"></i></div></button>` : ''}
       ${focus.map(f => `<button class="goal-chip" data-open="${f.c.id}"><b>${f.min}/${f.goal}′</b><span>${esc(f.c.icon)} ${esc(f.c.name)}</span><div class="bar"><i style="width:${Math.min(100, f.min / f.goal * 100)}%"></i></div></button>`).join('')}
     </div>
     <p class="quote">${esc(q)}</p>
@@ -444,9 +465,11 @@ export function renderHoy(view) {
   const hello = h < 13 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
   const rank = s => { const i = SECTIONS.indexOf(s); return i < 0 ? 99 : i; };
   const secs = [...new Set(cats.map(c => c.section))].sort((a, b) => rank(a) - rank(b));
-  if (!['Todo', 'Pendientes'].includes(hoyFilter) && !secs.includes(hoyFilter)) hoyFilter = 'Todo';
-  const shown = hoyFilter === 'Todo' ? cats : hoyFilter === 'Pendientes' ? cats.filter(c => !isDone(c, getVal(c.id, day))) : cats.filter(c => c.section === hoyFilter);
-  const ordered = ['Todo', 'Pendientes'].includes(hoyFilter) ? secs.flatMap(s => shown.filter(c => c.section === s)) : shown;
+  const ordered = secs.flatMap(s => cats.filter(c => c.section === s));
+  // Te falta: hábitos que hoy tocan y no están hechos · Registro: valoraciones, gasto, notas y lo que hoy no toca · Hecho
+  const todo = ordered.filter(c => expectedOn(c, day) && !isDone(c, getVal(c.id, day)));
+  const doneL = ordered.filter(c => isHabit(c) && isDone(c, getVal(c.id, day)) && expectedOn(c, day) || (isHabit(c) && isDone(c, getVal(c.id, day)) && freqOf(c) !== 'log'));
+  const logs = ordered.filter(c => !todo.includes(c) && !doneL.includes(c));
   const w = S.weather; const tips = isToday ? weatherTips(w) : [];
   view.innerHTML = `${topbar()}
     <div class="hero">
@@ -456,7 +479,7 @@ export function renderHoy(view) {
     <div class="today-top">
       ${ring(pct)}
       <div class="wx-mini">
-        <div class="wx-line"><b>${habits.filter(c => isDone(c, getVal(c.id, day))).length} de ${habits.length}</b> hábitos hechos</div>
+        <div class="wx-line"><b>${habits.filter(c => expectedOn(c, day) && isDone(c, getVal(c.id, day))).length} de ${habits.filter(c => expectedOn(c, day)).length}</b> de lo que toca hoy</div>
         ${w && isToday ? `<div class="wx-line"><span class="wx-temp">${Math.round(w.temp)}°</span><span class="muted">${esc(settings().city)} · UV ${Math.round(w.uvMax ?? 0)} · humedad ${w.hum}%</span></div>` : ''}
         <div class="row gap"><button class="icon-btn" id="prevD" aria-label="Día anterior" style="background:var(--soft)">${icon('left')}</button>
           ${isToday ? '' : '<button class="chip on" id="todayD">Volver a hoy</button>'}
@@ -467,17 +490,14 @@ export function renderHoy(view) {
     ${isToday ? planCard() : ''}
     ${alertCards()}
     <div class="section-head"><h2>Hábitos</h2><a href="#/ajustes/categorias">Editar</a></div>
-    <div class="filter"><div class="chips rail">
-      <button class="chip ${hoyFilter === 'Todo' ? 'on' : ''}" data-f="Todo">Todo</button>
-      <button class="chip ${hoyFilter === 'Pendientes' ? 'on' : ''}" data-f="Pendientes">Pendientes ${habits.filter(c => !isDone(c, getVal(c.id, day))).length}</button>
-      ${secs.map(s => `<button class="chip ${hoyFilter === s ? 'c-on' : ''}" data-f="${esc(s)}" style="--c:${sectionColor(s)}"><span class="swatch-dot"></span>${esc(s)}</button>`).join('')}
-    </div></div>
-    ${cats.length ? (ordered.length ? `<div class="tiles" id="tiles">${ordered.map(c => tile(c, day)).join('')}</div>` : '<div class="card empty"><p>¡Todo hecho por hoy! ✨</p></div>')
+    ${cats.length ? `${todo.length ? `<p class="sub-head">Te falta hoy · ${todo.length}</p><div class="tiles" id="tiles">${todo.map(c => tile(c, day)).join('')}</div>` : '<div class="card empty"><p>¡Todo lo de hoy, hecho! ✨</p></div>'}
+      ${logs.length ? `<p class="sub-head">Registro del día y cuando toque</p><div class="minis">${logs.map(c => mini(c, day)).join('')}</div>` : ''}
+      ${doneL.length ? `<details class="done-wrap" ${hoyFilter === 'open' ? 'open' : ''}><summary class="sub-head">Hecho hoy · ${doneL.length}</summary><div class="tiles">${doneL.map(c => tile(c, day)).join('')}</div></details>` : ''}`
       : '<div class="card empty"><p>No tienes hábitos activos.</p><a class="btn primary" href="#/ajustes/categorias">Añadir hábitos</a></div>'}`;
   $('#prevD').onclick = () => { S.date = addDays(S.date, -1); rerender(); };
   $('#nextD').onclick = () => { if (S.date < today()) { S.date = addDays(S.date, 1); rerender(); } };
   $('#todayD')?.addEventListener('click', () => { S.date = today(); rerender(); });
-  $$('[data-f]', view).forEach(b => b.onclick = () => { hoyFilter = b.dataset.f; rerender(); });
+  $('.done-wrap', view)?.addEventListener('toggle', e => { hoyFilter = e.target.open ? 'open' : 'Todo'; });
   $$('[data-tile]', view).forEach(b => b.onclick = async () => {
     const c = S.cats.find(x => x.id === b.dataset.tile);
     if (c.type === 'bool') {
@@ -491,7 +511,7 @@ export function renderHoy(view) {
   $$('[data-open]', view).forEach(b => b.onclick = () => { const c = S.cats.find(x => x.id === b.dataset.open); if (c) habitSheet(c, today(), rerender); });
   $$('[data-task]', view).forEach(b => b.onclick = async () => {
     const t = S.items.find(i => i.id === b.dataset.task);
-    b.classList.add('done'); await saveItem(t, { done: true, doneAt: today() });
+    b.classList.add('done'); await completeTask(t);
     toast('Tarea hecha'); setTimeout(rerender, 350);
   });
   $$('[data-yday]', view).forEach(b => b.onclick = () => { S.date = addDays(today(), -1); rerender(); window.scrollTo(0, 0); });

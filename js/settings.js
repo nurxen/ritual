@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { CONFIG } from './config.js';
 import {
   S, saveCategory, deleteCategory, moveCategory, applyTemplate, upcomingEvents, calToken, resetCalToken,
-  planPreview, applyPlan, planApplied, planVersionApplied,
+  planPreview, applyPlan, planApplied, planVersionApplied, isHabit, freqOf, FREQ_LABEL,
 } from './store.js';
 import { PLANS } from './plans.js';
 import { STATUS, CARE_CATALOG } from './data.js';
@@ -26,7 +26,7 @@ export function openMenu() {
     </div>
     <h3 class="mt">Apariencia</h3>
     <div class="seg mt-s">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button class="${theme === k ? 'on' : ''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
-    <p class="small muted center">Ritual v12 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
+    <p class="small muted center">Ritual v13 · ${db.DEMO ? 'modo demo' : 'conectado a Supabase'}</p>`, body => {
     $$('[data-go]', body).forEach(a => a.addEventListener('click', () => closeSheet()));
     $$('[data-theme-set]', body).forEach(b => b.onclick = () => {
       localStorage.setItem('ritual_theme', b.dataset.themeSet); applyTheme();
@@ -126,7 +126,7 @@ function categoriesPage(view) {
       <div class="card list" style="--c:${sectionColor(sec)}">${S.cats.filter(c => c.section === sec).map(c => `
         <div class="cat-row ${c.active ? '' : 'off'}">
           <button class="row gap grow" data-ed="${c.id}" style="text-align:left"><span class="ci">${esc(c.icon)}</span>
-            <span class="grow"><b>${esc(c.name)}</b><br><span class="small muted">${TYPE_INFO[c.type]?.label || c.type}${c.target ? `, meta ${c.target}` : ''}</span></span></button>
+            <span class="grow"><b>${esc(c.name)}</b><br><span class="small muted">${TYPE_INFO[c.type]?.label || c.type}${c.target ? `, meta ${c.target}` : ''}${isHabit(c) ? ` · ${FREQ_LABEL(freqOf(c)).toLowerCase()}` : ''}</span></span></button>
           <label class="switch" aria-label="Activo"><input type="checkbox" data-act="${c.id}" ${c.active ? 'checked' : ''}><i></i></label>
         </div>`).join('')}</div>`).join('')}
     ${missing.length ? `<div class="section-head"><h2>Ideas para añadir</h2></div>
@@ -148,7 +148,7 @@ function previewTile(d) {
 
 // Asistente en 2 pasos: tipo → detalles (con vista previa)
 function catWizard(c) {
-  const d = c ? { ...c } : { icon: '✨', type: null, section: 'Cuerpo', name: '', unit: '', target: null };
+  const d = c ? { ...c, freq: freqOf(c) } : { icon: '✨', type: null, section: 'Cuerpo', name: '', unit: '', target: null, freq: 'daily' };
   let step = c ? 2 : 1;
   const secs = [...new Set([...SECTIONS, ...S.cats.map(x => x.section)])];
   const draw = body => {
@@ -172,6 +172,9 @@ function catWizard(c) {
           <input class="input mt-s" id="newSec" placeholder="O crea una sección nueva"></div>
         ${needsUnit || needsTarget ? `<div class="grid2">${needsUnit ? `<label class="field"><span>Unidad</span><input id="un" value="${esc(d.unit || '')}" placeholder="vasos, km…"></label>` : ''}
           ${needsTarget ? `<label class="field"><span>Meta diaria</span><input type="number" id="tg" value="${d.target ?? ''}"></label>` : ''}</div>` : ''}
+        ${!['text', 'scale', 'money'].includes(d.type) ? `<div class="field"><span>¿Cada cuánto toca? (decide si sale como pendiente y cómo se cuenta la racha)</span>
+          <div class="chips">${[['daily', 'Cada día'], ['week', 'Veces por semana'], ['train', 'Los días que entreno'], ['log', 'Solo registro, sin racha']].map(([k, l]) => `<button class="chip ${(d.freq || 'daily').split(':')[0] === k ? 'on' : ''}" data-fq="${k}">${l}</button>`).join('')}</div>
+          <label class="row gap mt-s" id="fqN" ${(d.freq || '').startsWith('week:') ? '' : 'hidden'}><input class="input" type="number" min="1" max="7" style="width:80px" id="fqNum" value="${(d.freq || 'week:3').split(':')[1] || 3}"><span class="small muted">veces por semana</span></label></div>` : ''}
         ${c ? `<div class="row gap"><button class="btn ghost grow" id="up">${icon('up')} Subir</button><button class="btn ghost grow" id="down">${icon('down')} Bajar</button></div>` : ''}
         <div class="row gap">${c ? `<button class="btn danger ghost" id="del" aria-label="Borrar">${icon('trash')}</button>` : '<button class="btn ghost" id="backStep">Atrás</button>'}
           <button class="btn primary grow" id="save">${c ? 'Guardar cambios' : 'Crear hábito'}</button></div>
@@ -186,11 +189,16 @@ function catWizard(c) {
     $('#un', body)?.addEventListener('input', e => { d.unit = e.target.value; pv(); });
     $('#tg', body)?.addEventListener('input', e => { d.target = e.target.value === '' ? null : Number(e.target.value); });
     $('#backStep', body)?.addEventListener('click', () => { step = 1; draw(body); });
+    $$('[data-fq]', body).forEach(b => b.onclick = () => {
+      const k = b.dataset.fq; d.freq = k === 'week' ? `week:${$('#fqNum', body).value || 3}` : k;
+      $$('[data-fq]', body).forEach(x => x.classList.toggle('on', x === b)); $('#fqN', body).hidden = k !== 'week';
+    });
+    $('#fqNum', body)?.addEventListener('input', e => { if ((d.freq || '').startsWith('week')) d.freq = `week:${e.target.value || 3}`; });
     $('#up', body)?.addEventListener('click', async () => { await moveCategory(c.id, -1); toast('Movido arriba'); rerender(); });
     $('#down', body)?.addEventListener('click', async () => { await moveCategory(c.id, 1); toast('Movido abajo'); rerender(); });
     $('#save', body).onclick = async () => {
       if (!d.name.trim()) return toast('Ponle un nombre');
-      const data = { name: d.name.trim(), icon: d.icon || '•', section: d.section || 'Hábitos', unit: d.unit || null, target: d.target ?? null };
+      const data = { name: d.name.trim(), icon: d.icon || '•', section: d.section || 'Hábitos', unit: d.unit || null, target: d.target ?? null, config: { ...(c?.config || {}), freq: d.freq || 'daily' } };
       if (c) await saveCategory({ id: c.id, ...data }); else await saveCategory({ ...data, type: d.type, key: null });
       closeSheet(); toast(c ? 'Cambios guardados' : 'Hábito creado'); rerender();
     };
