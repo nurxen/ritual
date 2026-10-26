@@ -705,7 +705,9 @@ export async function applyPlan(plan) {
   }
   const pv = planPreview(plan);
   for (const { pp, ex } of [...pv.update, ...pv.add]) {
-    const { match, since, ...fields } = pp;
+    const { match, since, paid, ...fields } = pp;
+    // Precio real pagado (pedido ya hecho): sustituye al aproximado
+    if (paid != null) Object.assign(fields, { price: paid, priceEst: false });
     if (ex) {
       const d = ex.data;
       // Respeta el estado que hayas cambiado tú (p. ej. "Comprado"): solo se actualiza si sigue como lo dejó el plan
@@ -716,7 +718,8 @@ export async function applyPlan(plan) {
       const prevApplied = planVersionApplied(plan) > 0;
       const keepName = !fields.forceName && (d.planName !== undefined ? d.name !== d.planName : prevApplied);
       const ident = keepName ? { name: d.name, brand: d.brand, type: d.type } : {};
-      await saveItem(ex, { ...fields, ...ident, planName: fields.name, status, planStatus: fields.status, price: d.price ?? fields.price ?? null, pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
+      const price = paid != null && !(d.boughtAt === fields.boughtAt && !d.priceEst) ? paid : (d.price ?? fields.price ?? null);
+      await saveItem(ex, { ...fields, ...ident, planName: fields.name, status, planStatus: fields.status, price, ...(paid != null ? { priceEst: false } : {}), pao: d.pao ?? fields.pao ?? 12, tags: fields.tags || d.tags || [] });
     } else {
       await addItem('product', { tags: [], leaveOn: true, slot: 'none', openedAt: null, finished: false, low: false, price: null, ...fields, planName: fields.name, planStatus: fields.status, pao: 'pao' in fields ? fields.pao : 12 });
     }

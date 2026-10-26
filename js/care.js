@@ -93,10 +93,10 @@ function hub(view) {
 const DOW_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 let rDay = null;
 function stepHtml(p, slot) {
-  const d = p.data; const wish = pStatus(p) === 'wish';
+  const d = p.data; const later = d.startAt && d.startAt > today(); const wish = pStatus(p) === 'wish' || later;
   const tag = d.onlyIfMakeup ? ' <span class="pill accent">💄 si te has maquillado</span>' : d.optional ? ' <span class="pill">Opcional</span>' : '';
   const days = slot === 'pm' ? d.pmDays : d.amDays;
-  return `<li><span class="grow"><b>${esc(d.type || '')}</b>${tag}${wish ? ' <span class="pill accent">🛒 por comprar</span>' : ''}<br>
+  return `<li><span class="grow"><b>${esc(d.type || '')}</b>${tag}${later ? ` <span class="pill accent">🗓 desde el ${Number(d.startAt.slice(8))}/${Number(d.startAt.slice(5, 7))}</span>` : wish ? ' <span class="pill accent">🛒 por comprar</span>' : ''}<br>
     ${esc(d.name)}${d.brand ? ` <span class="muted small">${esc(d.brand)}</span>` : ''}
     ${wish && d.meanwhile ? `<br><span class="small muted">Mientras tanto: ${esc(d.meanwhile)}</span>` : ''}
     ${Array.isArray(days) && days.length ? `<br><span class="small" style="color:var(--c-ink)">${days.length} ${slot === 'pm' ? 'noches' : 'días'} por semana</span>` : ''}
@@ -168,7 +168,7 @@ function weekGrid(rot, order) {
     while (d <= days[6]) { if (d >= days[0]) out.add(d); d = addDays(d, Number(it.data.interval) || 7); }
     return out;
   };
-  const coming = products().filter(p => pStatus(p) === 'wish' && (p.data.slot === 'pm' || p.data.slot === 'both') && !(p.data.pmDays || []).length);
+  const coming = products().filter(p => (pStatus(p) === 'wish' || (p.data.startAt && p.data.startAt > today())) && (p.data.slot === 'pm' || p.data.slot === 'both') && !(p.data.pmDays || []).length);
   const tr = training();
   if (!rot.length && !weekly.length && !tr.length) return '';
   const cell = (on, col, isToday) => `<span style="height:22px;border-radius:7px;background:${on ? col : 'var(--soft)'};${isToday ? 'outline:2px solid var(--ink);outline-offset:-2px' : ''}"></span>`;
@@ -178,7 +178,7 @@ function weekGrid(rot, order) {
   return `<section class="card"><h3>Tus próximos 7 días</h3>
     <div class="wk-grid">${head}
       ${rot.length ? `<span class="wk-sec">Noches</span>` : ''}
-      ${rot.map(p => label(esc(short(p.data.brand || p.data.name)), pStatus(p) === 'wish' ? '🛒 cuando llegue' : '') + days.map(d => cell(p.data.pmDays.includes(dowOf(d)), 'var(--c)', d === t)).join('')).join('')}
+      ${rot.map(p => label(esc(short(p.data.brand || p.data.name)), p.data.startAt && p.data.startAt > today() ? `🗓 desde el ${Number(p.data.startAt.slice(8))}/${Number(p.data.startAt.slice(5, 7))}` : pStatus(p) === 'wish' ? '🛒 cuando llegue' : '') + days.map(d => cell(p.data.pmDays.includes(dowOf(d)), 'var(--c)', d === t)).join('')).join('')}
       <span class="wk-sec">Cuerpo y depilación</span>
       ${tr.length ? `${label('🏋️ Entreno', [...new Set(tr.map(x => x.time))].join(' / '))}${days.map(d => cell(!!trainingOn(d), '#9CCFB5', d === t)).join('')}` : ''}
       ${outDays().length ? `${label('🥂 Salir')}${days.map(d => cell(outDays().includes(dowOf(d)), '#E8C979', d === t)).join('')}` : ''}
@@ -187,7 +187,7 @@ function weekGrid(rot, order) {
       ${weekly.map(it => { const ds = careDays(it); return label(`${esc(it.data.icon || '')} ${esc(short(it.data.name))}`) + days.map(d => cell(ds.has(d), CARE_GROUP_COLORS[it.data.group] || 'var(--c)', d === t)).join(''); }).join('')}
     </div>
     ${bodyWhy(bp, days[6])}
-    ${coming.length ? `<p class="small muted mt-s">Se incorporan cuando lleguen: ${coming.map(p => `<b>${esc(p.data.brand || p.data.name)}</b> ${p.data.onlyIfMakeup ? '(noches que te maquilles)' : '(cada noche)'}`).join(', ')}.</p>` : ''}
+    ${coming.length ? `<p class="small muted mt-s">Se incorporan: ${coming.map(p => `<b>${esc(p.data.brand || p.data.name)}</b> ${p.data.startAt && p.data.startAt > today() ? `desde el ${Number(p.data.startAt.slice(8))}/${Number(p.data.startAt.slice(5, 7))} ` : pStatus(p) === 'wish' ? 'cuando llegue ' : ''}${p.data.onlyIfMakeup ? '(noches que te maquilles)' : '(cada noche)'}`).join(', ')}.</p>` : ''}
     <p class="small muted">Los cuidados se recolocan solos según el día que los marques como hechos.</p></section>`;
 }
 
