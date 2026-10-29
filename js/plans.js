@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 9,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Tu pedido de YesStyle (97,02 €) en el inventario con su precio real, y el orden para estrenar cada producto después de la graduación, de uno en uno.',
+  version: 10,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'La mascarilla hidratante aparece en tu rutina de noche el día que toca, después del tónico, con su temporizador de 5 minutos (lo que indica la Keana).',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -34,7 +34,7 @@ export const PLANS = [{
       status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-10', slot: 'both', step: 2, stepPm: 3, meanwhile: 'el Tónico Clean Deliplus si no lleva alcohol denat.',
       timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos antes de que se sequen y pon la hidratante con la piel aún húmeda.', note: 'Lo estrenas el 10/11 (3 días después del Anua). 2–3 capas por la mañana, o lotion pack con los discos de Muji si te vas a maquillar.' },
     { match: 'keana', name: 'Mascarilla de arroz', brand: 'Keana', type: 'Mascarilla', area: 'Cuidado facial',
-      status: 'keep', slot: 'none', timerSec: 900, timerKind: 'on', timerLabel: 'Mascarilla de arroz', timerAfter: 'Retírala, extiende lo que sobre y sella con la crema.', note: 'De noche, tras el tónico y antes de la crema, 1–2 veces por semana. También la noche antes o la mañana de un evento.' },
+      status: 'keep', slot: 'none', timerSec: 300, timerKind: 'on', timerLabel: 'Mascarilla de arroz', timerAfter: 'Retírala, extiende lo que sobre y sella con la crema.', note: 'De noche, tras el tónico y antes de la crema: unos 5 minutos (lo que indica el envase), sin dejar que se seque. Una vez por semana; aparece en tu rutina de noche el día que toca. También la noche antes de un evento.' },
     { match: 'paquete de 10', name: 'Keana Rice Mask (paquete de 10)', brand: 'Keana', type: 'Mascarilla', area: 'Cuidado facial', since: 9,
       status: 'keep', paid: 10.02, store: 'YesStyle', boughtAt: '2026-10-26', slot: 'none', pao: null,
       note: 'Recambio: ábrelo cuando se acaben las que tienes. 1–2 noches por semana, y la noche antes de un evento.' },
@@ -447,7 +447,7 @@ export const PLANS = [{
   careSince: { deep_wash: 1, roller_wash: 1, body_scrub: 1, hairbrush_clean: 2, sponge_replace: 2, brushes: 3 },
   careUpdates: {
     body_scrub: { interval: 4, tip: '1–2 veces por semana. Nunca 48 h antes ni después de una sesión de IPL.' },
-    face_mask: { timerSec: 900, timerKind: 'on', timerAfter: 'Retírala, extiende lo que sobre y sella con la hidratante. Ajusta el tiempo a lo que diga el envase.', tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
+    face_mask: { timerSec: 300, timerKind: 'on', timerAfter: 'Retírala, extiende lo que sobre y sella con la crema. Si tu mascarilla indica otro tiempo, cámbialo; nunca la dejes hasta que se seque.', tip: 'De noche, tras limpiar y el tónico, antes de la crema. Antes de un evento: la noche antes o esa mañana, pero nunca una mascarilla que no hayas probado.' },
     hair_mask: { timerSec: 300, timerKind: 'on', timerAfter: 'Aclara bien. Ajusta el tiempo a lo que diga el envase.' },
     brushes: { name: 'Lavar brochas, esponjas y triángulos', interval: 7, tip: 'Esponjas, triángulos y brochas de base o corrector: cada semana. Brochas de ojos: cada 2 semanas. Brochas de polvo: al menos una vez al mes. Champú suave y secar en plano, cerdas colgando del borde.' },
   },

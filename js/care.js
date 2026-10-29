@@ -103,6 +103,22 @@ function stepHtml(p, slot) {
     ${d.note ? `<details class="small muted"><summary>Cómo usarlo</summary>${esc(d.note)}</details>` : ''}
     ${d.timerSec ? `<div class="mt-s">${timerBtn(p.id, d.timerSec)} <span class="small muted">${esc((d.timerLabel || TIMER_KINDS[d.timerKind || 'on'].l).toLowerCase())}</span></div>` : ''}</span></li>`;
 }
+// ¿Le toca a este cuidado ese día? (misma cuenta que la tabla de 7 días)
+function careOnDay(it, day) {
+  if (!it.data.last) return false;
+  const st = careStatus(it); const start = st.next < today() ? today() : st.next;
+  const n = diffDays(day, start); const iv = Number(it.data.interval) || 7;
+  return n >= 0 && n % iv === 0;
+}
+// Paso de cuidado (p. ej. mascarilla) metido en la rutina de la noche que le toca
+function careStepHtml(it, viewDay) {
+  const masks = products().filter(p => p.data.area === 'Cuidado facial' && /mascarilla/i.test(p.data.type || '') && !p.data.finished && !['drop', 'wish'].includes(pStatus(p)) && !/paquete|recambio/i.test(p.data.name));
+  const isToday = viewDay === today();
+  return `<li class="care-step"><span class="grow"><b>${esc(it.data.icon || '')} ${esc(it.data.name)}</b> <span class="pill accent">${isToday ? 'toca esta noche' : 'toca ese día'}</span><br>
+    ${masks.length ? `<span class="small">Con: ${masks.map(m => esc(m.data.brand ? `${m.data.brand} (${m.data.name})` : m.data.name)).join(' o ')}</span><br>` : ''}
+    <span class="small muted">Después del tónico y antes de la crema. Retírala antes de que se seque, extiende lo que sobre y sella con la crema.</span>
+    <div class="row gap mt-s">${timerBtn(it.id, it.data.timerSec)}${isToday ? `<button class="btn tiny" data-carestep="${it.id}">Hecho</button>` : ''}</div></span></li>`;
+}
 function rutinas(root) {
   const has = products().length > 0;
   const dow = rDay ?? new Date().getDay();
@@ -110,6 +126,16 @@ function rutinas(root) {
   const mode = settings().routineMode || 'completa';
   const mkd = settings().makeupDay;
   const madeUp = mkd?.day === today() ? !!mkd.on : null;
+  const viewDay = addDays(today(), (dow - new Date().getDay() + 7) % 7);
+  const careTonight = itemsOf('care').filter(i => i.data.group === 'piel' && careOnDay(i, viewDay));
+  // Inserta los cuidados de piel de ese día (mascarilla…) en la noche, justo después del tónico
+  const withCare = (slot, htmls, list) => {
+    if (slot !== 'pm' || !careTonight.length) return htmls.join('');
+    let at = list.map(p => /t[oó]nico/i.test(p.data.type || '')).lastIndexOf(true) + 1;
+    if (at === 0) at = list.findIndex(p => /crema|hidratante/i.test(p.data.type || '')); if (at < 0) at = htmls.length;
+    const out = htmls.slice(); out.splice(at, 0, ...careTonight.map(it => careStepHtml(it, viewDay)));
+    return out.join('');
+  };
   const block = (slot, title, catKey) => {
     const all = routineProducts(slot, dow);
     const list = all.filter(p => !(mode === 'esencial' && p.data.optional) && !(slot === 'pm' && p.data.onlyIfMakeup && madeUp === false));
@@ -122,7 +148,7 @@ function rutinas(root) {
       ${notes[slot] ? `<p class="small muted">${esc(notes[slot])}</p>` : ''}
       ${slot === 'pm' && all.some(p => p.data.onlyIfMakeup) ? `<div class="chips mb"><span class="small" style="font-weight:700;align-self:center">¿Te has maquillado hoy?</span>
         <button class="chip small ${madeUp === true ? 'on' : ''}" data-mk="1">💄 Sí</button><button class="chip small ${madeUp === false ? 'on' : ''}" data-mk="0">No</button></div>` : ''}
-      ${list.length ? `<ol class="steps">${list.map(p => stepHtml(p, slot)).join('')}</ol>` : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
+      ${list.length ? `<ol class="steps">${withCare(slot, list.map(p => stepHtml(p, slot)), list)}</ol>` : '<p class="muted small">Sin productos asignados a esta rutina.</p>'}
       ${hidden ? `<p class="small muted">${hidden} paso${hidden > 1 ? 's' : ''} oculto${hidden > 1 ? 's' : ''}${mode === 'esencial' ? ' (opcionales)' : ''}${slot === 'pm' && madeUp === false ? ': sin maquillaje basta con una limpieza' : ''}.</p>` : ''}
       ${rules.length ? rules.map(r => `<p class="note ${r.level}">${r.level === 'warn' ? '⚠️' : 'ℹ️'} ${esc(r.msg)}</p>`).join('')
         : list.length ? '<p class="note ok">✓ Rutina compatible: sin combinaciones irritantes.</p>' : ''}
@@ -149,6 +175,7 @@ function rutinas(root) {
     await saveSettings({ makeupDay: madeUp === on ? null : { day: today(), on } }); rerender();
   });
   $$('[data-dow]', root).forEach(b => b.onclick = () => { const n = Number(b.dataset.dow); rDay = n === new Date().getDay() ? null : n; rerender(); });
+  $$('[data-carestep]', root).forEach(b => b.onclick = async () => { await markCareDone(S.items.find(i => i.id === b.dataset.carestep)); toast('Registrado'); rerender(); });
   $$('[data-done]', root).forEach(b => b.onclick = async () => {
     const id = b.dataset.done; await setVal(id, !getVal(id, today()), today()); rerender();
   });
