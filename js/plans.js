@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 10,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'La mascarilla hidratante aparece en tu rutina de noche el día que toca, después del tónico, con su temporizador de 5 minutos (lo que indica la Keana).',
+  version: 11,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Tu colorimetría confirmada (Otoño profundo) en la Guía: tus colores, los que te apagan, maquillaje, joyas, pelo, uñas y reglas para comprar.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -530,6 +530,22 @@ export const PLANS = [{
         '<b>Limpieza:</b> esponjas, triángulos y brochas de base cada semana (las de ojos cada 2, las de polvo cada mes), secando en plano. Esponjas nuevas cada 3 meses. Si una brocha se despega, una gota de pegamento instantáneo y 24 h.',
         '<b>Higiene:</b> máscaras fuera a los 3–6 meses; glosses y labiales líquidos, al año. Riza las pestañas antes de la máscara.',
         '<b>Qué reponer y qué no comprar:</b> lo tienes al día en Inventario → Compra.',
+      ],
+    },
+    {
+      gid: 'p-color', icon: '🎨', color: '#B05A3C', title: 'Tus colores: Otoño profundo', lead: 'Confirmado con tu test. Qué te favorece al comprar ropa, maquillaje y joyas.',
+      body: [
+        '<b>Tus rasgos:</b> piel clara neutro-cálida con pecas doradas, ojos castaños con fondo ámbar, pelo casi negro. Contraste medio-alto. La rojez de las mejillas es circulación, no te hace fría.',
+        '<b>Neutros:</b> crudo (en vez de blanco), camel, taupe cálido, chocolate, espresso y marino profundo. El negro lo aguantas, mejor con oro y labio con color.',
+        '<b>Colores estrella:</b> burdeos, verde bosque, esmeralda, oliva, petróleo, terracota, teja, rojo ladrillo, mostaza y ciruela. Claros: melocotón, nude cálido, champán, salvia.',
+        '<b>Te apagan cerca de la cara:</b> blanco óptico, gris frío, lila y azul bebé, rosa chicle, fucsia frío y neón. Lejos de la cara (pantalón, zapatos) vale todo.',
+        '<b>Maquillaje:</b> colorete melocotón, terracota o rosa cálido, poco y alto porque ya tienes rojez. Iluminador champán, sombras bronce, cobre, chocolate u oliva. Labios malva (tu tono), nude cálido, ladrillo o baya; nada de rosa pálido nacarado. Si el Rose Ivory te queda rosado en la mandíbula, la próxima base en tono neutro.',
+        '<b>Joyas y accesorios:</b> oro amarillo, oro viejo, bronce y oro rosa. Plata solo mate o mezclada, y en looks especiales solo oro. Perlas crema, carey (tus gafas son perfectas), bolsos y zapatos coñac, chocolate o burdeos.',
+        '<b>Tejidos y estampados:</b> satén, terciopelo, ante, pana y punto grueso. Cachemir, tartán y leopardo en tonos tierra. Evita los metalizados plateados y los estampados pastel.',
+        '<b>Pelo:</b> tu castaño oscuro es tu mejor color. Si quieres luz, babylights caramelo o miel alrededor de la cara; nunca ceniza, platino ni negro azulado.',
+        '<b>Uñas:</b> burdeos, chocolate, cromado bronce, nude melocotón, ladrillo o verde bosque. Francesa en crudo, no en blanco.',
+        '<b>Al comprar:</b> si dudas entre dos tonos, el más profundo y cálido. Míralo con luz de ventana y ponlo bajo la barbilla: si se marcan las ojeras o la rojez, no es tu color.',
+        'Tu página con todas las muestras: <a href="https://claude.ai/artifact/RketEPYJ5goqxE8denF61g" target="_blank" rel="noopener">Colorimetría de Nuria</a>.',
       ],
     },
     {
