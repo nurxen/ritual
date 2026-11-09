@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 11,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Tu colorimetría confirmada (Otoño profundo) en la Guía: tus colores, los que te apagan, maquillaje, joyas, pelo, uñas y reglas para comprar.',
+  version: 12,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Ya tienes el pedido: nuevas fechas para estrenar cada producto (Anua el 9, Rice Milk el 12, Relief Sun el 16) y qué hacer con lo que te queda de cada uno.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -22,8 +22,8 @@ export const PLANS = [{
   products: [
     // ---------------- Cuidado facial ----------------
     { match: 'anua', name: 'Heartleaf Pore Control Cleansing Oil', brand: 'Anua', type: 'Aceite limpiador', area: 'Cuidado facial', onlyIfMakeup: true,
-      status: 'keep', paid: 13.50, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-07', slot: 'pm', step: 1, meanwhile: 'agua micelar (Yves Rocher o Deliplus), aclarándola después con el limpiador',
-      timerSec: 60, timerKind: 'massage', timerAfter: 'Moja las manos, emulsiona hasta que se vuelva lechoso, aclara y sigue con la espuma.', note: 'Lo estrenas el 7/11, el primero de lo nuevo. Solo las noches que te hayas maquillado (o lleves protector resistente al agua): masajea 1 minuto en seco, también sobre los ojos cerrados, emulsiona con agua y aclara. Después, tu espuma. Con esto ya no necesitas micelar ni algodones.' },
+      status: 'keep', paid: 13.50, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-09', slot: 'pm', step: 1, meanwhile: 'agua micelar (Yves Rocher o Deliplus), aclarándola después con el limpiador',
+      timerSec: 60, timerKind: 'massage', timerAfter: 'Moja las manos, emulsiona hasta que se vuelva lechoso, aclara y sigue con la espuma.', note: 'Lo estrenas el 9/11, el primero de lo nuevo (esa noche úsalo aunque no vayas maquillada, para probarlo). Después, solo las noches que te hayas maquillado (o lleves protector resistente al agua): masajea 1 minuto en seco, también sobre los ojos cerrados, emulsiona con agua y aclara. Después, tu espuma. Con esto ya no necesitas micelar ni algodones: la micelar que te queda, para el neceser del gym o desmaquillar un ojo rápido.' },
     { match: 's[ée]bium|bioderma', name: 'Sébium Gel Moussant', brand: 'Bioderma', type: 'Limpiador', area: 'Cuidado facial',
       status: 'keep', slot: 'both', step: 1, stepPm: 2, pmDays: [2, 4, 6],
       note: 'Mañana: limpieza suave (o solo agua si anoche hiciste doble limpieza). Noche: segunda limpieza los días sin CeraVe. Vuelve a comprarlo.' },
@@ -31,8 +31,8 @@ export const PLANS = [{
       status: 'use', slot: 'pm', step: 2, pmDays: [1, 3, 5, 0], tags: ['bha'], leaveOn: false,
       note: '3–4 noches por semana (lunes, miércoles, viernes y domingo). Las otras noches, Bioderma.' },
     { match: 'rice milk|boj glow|beauty of joseon.*glow', name: 'Glow Replenishing Rice Milk', brand: 'Beauty of Joseon', type: 'Tónico', area: 'Cuidado facial',
-      status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-10', slot: 'both', step: 2, stepPm: 3, meanwhile: 'el Tónico Clean Deliplus si no lleva alcohol denat.',
-      timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos antes de que se sequen y pon la hidratante con la piel aún húmeda.', note: 'Lo estrenas el 10/11 (3 días después del Anua). 2–3 capas por la mañana, o lotion pack con los discos de Muji si te vas a maquillar.' },
+      status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-12', slot: 'both', step: 2, stepPm: 3, meanwhile: 'el Tónico Clean Deliplus si no lleva alcohol denat.',
+      timerSec: 360, timerKind: 'on', timerLabel: 'Lotion pack (5–7 min)', timerAfter: 'Retira los discos antes de que se sequen y pon la hidratante con la piel aún húmeda.', note: 'Lo estrenas el 12/11 (3 días después del Anua). Hasta que acabes el Tónico Clean: Rice Milk por la mañana y en la lotion pack, Clean por la noche. Después, este mañana y noche. 2–3 capas por la mañana, o lotion pack con los discos de Muji si te vas a maquillar.' },
     { match: 'keana', name: 'Mascarilla de arroz', brand: 'Keana', type: 'Mascarilla', area: 'Cuidado facial',
       status: 'keep', slot: 'none', timerSec: 300, timerKind: 'on', timerLabel: 'Mascarilla de arroz', timerAfter: 'Retírala, extiende lo que sobre y sella con la crema.', note: 'De noche, tras el tónico y antes de la crema: unos 5 minutos (lo que indica el envase), sin dejar que se seque. Una vez por semana; aparece en tu rutina de noche el día que toca. También la noche antes de un evento.' },
     { match: 'paquete de 10', name: 'Keana Rice Mask (paquete de 10)', brand: 'Keana', type: 'Mascarilla', area: 'Cuidado facial', since: 9,
@@ -60,8 +60,8 @@ export const PLANS = [{
       status: 'keep', paid: 14.49, store: 'YesStyle', boughtAt: '2026-10-26', slot: 'none',
       timerSec: 180, timerKind: 'wait', timerLabel: 'Espera antes del corrector (3 min)', timerAfter: 'Ya puedes poner el corrector en la ojera, poca cantidad y a toques.', note: 'Sin abrir hasta que se acabe la Vichy; entonces ponla en tu rutina de noche. El pantenol repara la barrera. Sustituye a la Vichy, va en la ojera antes del corrector y calma la piel tras el IPL (24–48 h, sin perfume).' },
     { match: 'relief sun(?!.*aqua)', name: 'Relief Sun: Rice + Niacinamide', brand: 'Beauty of Joseon', type: 'Protector solar', area: 'Cuidado facial', forceName: true,
-      status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-13', slot: 'am', step: 7, tags: ['spf', 'niacinamide'], meanwhile: 'el fluido solar Deliplus',
-      timerSec: 300, timerKind: 'wait', timerLabel: 'Espera antes del maquillaje', timerAfter: 'Ya puedes ponerte el corrector o el skin tint, a toques.', note: 'Lo estrenas el 13/11 (3 días después del tónico). Tu protector de diario: dos dedos de cantidad para cara y cuello. Lleva niacinamida, así que ya no necesitas el sérum Glow.' },
+      status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', startAt: '2026-11-16', slot: 'am', step: 7, tags: ['spf', 'niacinamide'], meanwhile: 'el fluido solar Deliplus',
+      timerSec: 300, timerKind: 'wait', timerLabel: 'Espera antes del maquillaje', timerAfter: 'Ya puedes ponerte el corrector o el skin tint, a toques.', note: 'Lo estrenas el 16/11 (después del tónico y del IPL del domingo). Tu protector de diario: dos dedos de cantidad para cara y cuello. El fluido Deliplus que te queda, para escote, manos y cuerpo. Lleva niacinamida: el sérum Glow, gástalo y no lo repongas.' },
     { match: 'aqua.?fresh', name: 'Relief Sun Aqua-Fresh', brand: 'Beauty of Joseon', type: 'Protector solar', area: 'Cuidado facial', since: 9,
       status: 'keep', paid: 14.40, store: 'YesStyle', boughtAt: '2026-10-26', slot: 'none', tags: ['spf'],
       note: 'Más ligero y fresco: para días de calor, de entreno o cuando brillas mucho. Ábrelo cuando lleves unas semanas con el original sin problemas (o en primavera). Abierto dura unos 12 meses.' },
