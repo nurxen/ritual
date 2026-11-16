@@ -8,12 +8,12 @@ import { topbar, rerender, habitSheet } from './app.js';
 
 const MIND = '#A7BCEB';
 export function renderMente(view, sub = 'foco') {
-  if (!['foco', 'ingles', 'objetivos'].includes(sub)) sub = 'foco';
+  if (!['foco', 'ingles', 'objetivos', 'suenos'].includes(sub)) sub = 'foco';
   view.innerHTML = `${topbar()}
     <div class="page-title"><h1>Mente</h1></div>
-    <div class="seg"><a href="#/mente/foco" class="${sub === 'foco' ? 'on' : ''}">Foco</a><a href="#/mente/ingles" class="${sub === 'ingles' ? 'on' : ''}">Inglés</a><a href="#/mente/objetivos" class="${sub === 'objetivos' ? 'on' : ''}">Objetivos</a></div>
+    <div class="seg"><a href="#/mente/foco" class="${sub === 'foco' ? 'on' : ''}">Foco</a><a href="#/mente/ingles" class="${sub === 'ingles' ? 'on' : ''}">Inglés</a><a href="#/mente/objetivos" class="${sub === 'objetivos' ? 'on' : ''}">Objetivos</a><a href="#/mente/suenos" class="${sub === 'suenos' ? 'on' : ''}">Sueños</a></div>
     <div id="mBody" style="--c:${MIND}"></div>`;
-  ({ foco, ingles, objetivos })[sub]($('#mBody', view));
+  ({ foco, ingles, objetivos, suenos })[sub]($('#mBody', view));
 }
 
 // ------------------------------------------------------------------ FOCO (temporizador)
@@ -127,6 +127,84 @@ function goalEdit(g) {
       g ? await saveItem(g, data) : await addItem('goal', data); closeSheet(); rerender();
     };
     $('#del', body)?.addEventListener('click', async () => { if (await confirmBox('Borrar el objetivo')) { await deleteItem(g); rerender(); } });
+  });
+}
+
+// ------------------------------------------------------------------ SUEÑOS (cosas que quieres conseguir en la vida)
+const DREAM_AREAS = [['viajar', '✈️', 'Viajar y vivir', '#A7BCEB'], ['idiomas', '🗣️', 'Idiomas', '#96D1CC'], ['estudios', '🎓', 'Estudios y trabajo', '#E8C979'],
+  ['crear', '🎮', 'Crear', '#D3AEE6'], ['salud', '💪', 'Cuerpo y salud', '#A8C99A'], ['vivir', '🌟', 'Experiencias', '#F2A9BC'], ['casa', '🏡', 'Casa y dinero', '#E8B796']];
+const DREAM_WHEN = [['ano', 'Este año'], ['pronto', 'En 1–3 años'], ['algun', 'Algún día']];
+const DREAM_STATE = [['idea', 'Idea'], ['marcha', 'En marcha'], ['hecho', 'Conseguido']];
+const DREAM_IDEAS = [
+  { title: 'Vivir una temporada en el extranjero', area: 'viajar', when: 'pronto', first: 'Mirar programas (Erasmus+, au pair, auxiliar de conversación, trabajo en verano) y elegir un país' },
+  { title: 'Hablar inglés con fluidez', area: 'idiomas', when: 'pronto', first: '15 minutos de inglés al día en Mente → Inglés' },
+  { title: 'Sacarme el C2 de inglés', area: 'idiomas', when: 'pronto', first: 'Hacer un examen de prueba para saber mi nivel real y elegir fecha (Cambridge o Aptis)' },
+  { title: 'Sacar un videojuego', area: 'crear', when: 'algun', first: 'Elegir motor (Godot es gratis) y hacer un juego mínimo de una pantalla' },
+];
+const areaOf = k => DREAM_AREAS.find(a => a[0] === k) || DREAM_AREAS[5];
+function suenos(root) {
+  const all = itemsOf('dream');
+  const goals = itemsOf('goal');
+  const order = { marcha: 0, idea: 1, hecho: 2 };
+  const done = all.filter(x => x.data.state === 'hecho');
+  root.innerHTML = `
+    <section class="card plan">
+      <h3 style="color:#F3F0EB">Lo que quieres vivir</h3>
+      <p class="small" style="color:#CFC7BE">${all.length ? `${all.length} sueños · ${all.filter(x => x.data.state === 'marcha').length} en marcha · ${done.length} conseguidos` : 'Apunta aquí todo lo que quieres conseguir algún día, aunque ahora parezca lejos.'}</p>
+      <p class="small mt-s" style="color:#CFC7BE">Un sueño pasa a ser un <b style="color:#F3F0EB">objetivo</b> cuando le pones fecha y pasos. Desde cada sueño puedes crearlo.</p>
+    </section>
+    <button class="btn primary block" id="dAdd">${icon('plus')} Nuevo sueño</button>
+    ${DREAM_AREAS.map(([k, e, l, c]) => {
+      const L = all.filter(x => (x.data.area || 'vivir') === k).sort((a, b) => (order[a.data.state || 'idea'] - order[b.data.state || 'idea']));
+      if (!L.length) return '';
+      return `<div class="section-head"><h2>${e} ${l}</h2></div>${L.map(x => {
+        const d = x.data; const g = d.goalId && goals.find(gg => gg.id === d.goalId);
+        const st = DREAM_STATE.find(s => s[0] === (d.state || 'idea'));
+        return `<button class="card dream ${d.state === 'hecho' ? 'is-done' : ''}" data-dream="${x.id}" style="--c:${c};text-align:left">
+          <div class="row between"><b>${d.state === 'hecho' ? '🎉 ' : ''}${esc(d.title)}</b><span class="pill ${d.state === 'marcha' ? 'accent' : ''}">${st[1]}</span></div>
+          <span class="small muted">${DREAM_WHEN.find(w => w[0] === d.when)?.[1] || ''}${d.why ? ` · ${esc(d.why)}` : ''}</span>
+          ${d.first && d.state !== 'hecho' ? `<span class="small">👉 Primer paso: ${esc(d.first)}</span>` : ''}
+          ${g ? `<span class="small">🎯 Objetivo: ${esc(g.data.title)}</span>` : ''}</button>`;
+      }).join('')}`;
+    }).join('')}
+    ${DREAM_IDEAS.some(i => !all.some(x => x.data.title === i.title)) ? `<div class="section-head"><h2>Los que me dijiste</h2></div>
+      <div class="chips">${DREAM_IDEAS.filter(i => !all.some(x => x.data.title === i.title)).map((i, n) => `<button class="chip" data-di="${DREAM_IDEAS.indexOf(i)}">${icon('plus')} ${esc(i.title)}</button>`).join('')}</div>` : ''}`;
+  $('#dAdd', root).onclick = () => dreamEdit(null);
+  $$('[data-dream]', root).forEach(b => b.onclick = () => dreamEdit(S.items.find(i => i.id === b.dataset.dream)));
+  $$('[data-di]', root).forEach(b => b.onclick = async () => { await addItem('dream', { ...DREAM_IDEAS[b.dataset.di], state: 'idea' }); toast('Añadido'); rerender(); });
+}
+function dreamEdit(x) {
+  const d = x?.data || { area: 'vivir', when: 'algun', state: 'idea' };
+  const g = d.goalId && S.items.find(i => i.id === d.goalId);
+  sheet(x ? 'Tu sueño' : 'Nuevo sueño', `<div class="stack">
+    <label class="field"><span>¿Qué quieres conseguir?</span><input name="title" value="${esc(d.title || '')}" placeholder="Vivir en Londres, sacar un videojuego…"></label>
+    <div class="field"><span>Área</span><div class="chips">${DREAM_AREAS.map(([k, e, l]) => `<label class="chip check small"><input type="radio" name="area" value="${k}" ${d.area === k ? 'checked' : ''}>${e} ${l}</label>`).join('')}</div></div>
+    <div class="field"><span>¿Cuándo?</span><div class="chips">${DREAM_WHEN.map(([k, l]) => `<label class="chip check small"><input type="radio" name="when" value="${k}" ${d.when === k ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
+    <div class="field"><span>Estado</span><div class="chips">${DREAM_STATE.map(([k, l]) => `<label class="chip check small"><input type="radio" name="state" value="${k}" ${(d.state || 'idea') === k ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
+    <label class="field"><span>¿Por qué lo quieres?</span><input name="why" value="${esc(d.why || '')}"></label>
+    <label class="field"><span>El primer paso más pequeño</span><input name="first" value="${esc(d.first || '')}" placeholder="Algo que podrías hacer esta semana"></label>
+    <label class="field"><span>Notas, ideas, enlaces</span><textarea class="input" name="notes" rows="3">${esc(d.notes || '')}</textarea></label>
+    ${x && !g && d.state !== 'hecho' ? '<button class="btn ghost block" id="toGoal">🎯 Convertir en objetivo con fecha y pasos</button>' : ''}
+    ${g ? `<a class="btn ghost block" href="#/mente/objetivos">🎯 Ver objetivo: ${esc(g.data.title)}</a>` : ''}
+    <div class="row gap">${x ? `<button class="btn danger ghost" id="dDel">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="dSave">Guardar</button></div></div>`, body => {
+    const read = () => {
+      const f = formData(body);
+      const r = n => $(`input[name=${n}]:checked`, body)?.value;
+      return { title: f.title, why: f.why, first: f.first, notes: f.notes, area: r('area') || 'vivir', when: r('when') || 'algun', state: r('state') || 'idea' };
+    };
+    $('#dSave', body).onclick = async () => {
+      const data = read(); if (!data.title) return toast('Escribe qué quieres conseguir');
+      if (data.state === 'hecho' && d.state !== 'hecho') data.doneAt = today();
+      x ? await saveItem(x, data) : await addItem('dream', data);
+      closeSheet(); if (data.state === 'hecho' && d.state !== 'hecho') toast('¡Conseguido! 🎉'); rerender();
+    };
+    $('#toGoal', body)?.addEventListener('click', async () => {
+      const data = read(); await saveItem(x, { ...data, state: 'marcha' });
+      const goal = await addItem('goal', { title: data.title, why: data.why || '', steps: data.first ? [{ t: data.first, done: false }] : [], progress: 0, start: today(), deadline: null });
+      if (goal?.id) await saveItem(S.items.find(i => i.id === x.id), { goalId: goal.id });
+      closeSheet(); toast('Objetivo creado: ponle fecha y pasos'); location.hash = '#/mente/objetivos';
+    });
+    $('#dDel', body)?.addEventListener('click', async () => { if (await confirmBox('Borrar este sueño')) { await deleteItem(x); closeSheet(); rerender(); } });
   });
 }
 

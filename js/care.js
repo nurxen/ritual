@@ -5,7 +5,7 @@ import {
   pStatus, pArea, shoppingList, refillBought, refillSkip, lipsPlan, lipTriggers, cureLips, scrubBlock, postIpl, streak,
   training, trainingOn, iplDays, bodyPlan, outDays,
 } from './store.js';
-import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num } from './ui.js';
+import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, fmtShort, relDay, eur, formData, num, imageToDataUrl, linkSource } from './ui.js';
 import {
   SAMPLE_PRODUCTS, SAMPLE_PERFUMES, SAMPLE_COMBOS, PERFUME_MOMENTS, TAG_LABELS, GUIDE, SOURCES, POST_GYM_PROTOCOL,
   CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES, STATUS, AREAS, MAKEUP_SUBS, DOW_SHORT, LIP_TRIGGERS,
@@ -38,6 +38,7 @@ const PAGES = {
   inventario: { t: 'Inventario', e: '🧴', c: '#D6CFC6', d: 'Caducidad, compra y gasto' },
   perfumes: { t: 'Perfumes', e: '🌸', c: '#EFA3AE', d: 'Biblioteca y layering' },
   looks: { t: 'Looks', e: '💄', c: '#F2CF7E', d: 'Maquillaje guardado' },
+  peinados: { t: 'Peinados', e: '💇‍♀️', c: '#E8B796', d: 'Los que ves y los que te haces, en un sitio' },
   viaje: { t: 'Neceser', e: '🧳', c: '#A7BCEB', d: 'Lista para viajar' },
   guia: { t: 'Guía', e: '📖', c: '#A8C99A', d: 'Consejos de dermatólogos' },
 };
@@ -50,7 +51,7 @@ export function renderCare(view, sub, sub2) {
     <div class="page-banner" style="--c:${P.c}"><h1>${P.t}</h1><p>${P.d}</p></div>
     <div id="careBody" style="--c:${P.c}"></div>`;
   const body = $('#careBody', view);
-  ({ rutinas, labios, ipl, tinte, calendarios, inventario, perfumes, looks, viaje, guia })[sub](body, sub2);
+  ({ rutinas, labios, ipl, tinte, calendarios, inventario, perfumes, looks, peinados, viaje, guia })[sub](body, sub2);
 }
 
 function hub(view) {
@@ -71,6 +72,7 @@ function hub(view) {
     inventario: exp ? `${exp} caducan pronto` : `${products().filter(p => !p.data.finished).length} en uso`,
     perfumes: `${itemsOf('perfume').length} perfumes`,
     looks: `${itemsOf('combo').filter(c => c.data.type === 'look').length} looks`,
+    peinados: (() => { const h = itemsOf('hairdo'); const p = h.filter(x => !x.data.tried).length; return h.length ? `${h.length - p} míos · ${p} por probar` : 'Guarda los que te gustan'; })(),
     viaje: 'Calcula cantidades',
     guia: (() => { const mine = itemsOf('guide').map(i => i.data); const hid = new Set(mine.flatMap(x => [].concat(x.replaces || []))); return `${mine.length + GUIDE.filter(g => !hid.has(g.id)).length} temas`; })(),
     labios: lipStatusText(),
@@ -84,7 +86,7 @@ function hub(view) {
     <div class="page-title"><h1>Cuidado</h1></div>
     <div class="hub">
       ${tileH('rutinas', 'wide')}${lipsPlan() ? tileH('labios', 'wide') : ''}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
-      ${tileH('perfumes')}${tileH('looks')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
+      ${tileH('perfumes')}${tileH('looks')}${tileH('peinados', 'wide')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
     </div>
     ${lipsPlan() ? '' : '<p class="small muted mt">¿Quieres el plan para curar labios? Actívalo desde Labios en <a href="#/cuidado/labios">este enlace</a>.</p>'}`;
 }
@@ -850,6 +852,120 @@ function looks(root) {
       <li>Sleek bun para ir rápida, pero alterna con peinados flojos para no tirar del pelo.</li></ul></section>`;
   bindCombos(root);
   $('#ls3', root)?.addEventListener('click', async () => { for (const c of SAMPLE_COMBOS.filter(x => x.type === 'look')) await addItem('combo', c); rerender(); });
+}
+
+// ------------------------------------------------------------------ PEINADOS
+export const HAIR_TAGS = ['Diario', 'Rápido (5 min)', 'Box / gym', 'Evento', 'Pelo de 2.º día', 'Rizos sueltos', 'Recogido', 'Semirrecogido', 'Para dormir'];
+const HAIR_IDEAS = [
+  { name: 'Moño pulido con dos rizos sueltos', tags: ['Evento', 'Recogido'], min: 15, needs: 'Gel o Wet Shine, gomas sin metal, horquillas', steps: 'Gel en mojado hacia atrás, moño alto, saca dos rizos delante y defínelos con el dedo.' },
+  { name: 'Pinza de carey a media altura', tags: ['Diario', 'Rápido (5 min)', 'Pelo de 2.º día', 'Semirrecogido'], min: 3, needs: 'Pinza grande de carey', steps: 'Gira el pelo hacia arriba y sujétalo con la pinza; deja salir las puntas rizadas.' },
+  { name: 'Media coleta con lazo de terciopelo', tags: ['Diario', 'Evento', 'Semirrecogido', 'Rizos sueltos'], min: 5, needs: 'Lazo burdeos o chocolate', steps: 'Coge la parte de arriba desde las sienes, átala y pon el lazo encima.' },
+  { name: 'Coleta baja con raya al medio', tags: ['Diario', 'Rápido (5 min)', 'Recogido'], min: 5, needs: 'Goma sin metal, un poco de gel', steps: 'Raya al medio, gel solo en la raíz y coleta en la nuca. Ideal con blazer.' },
+  { name: 'Moño alto flojo (pineapple)', tags: ['Para dormir', 'Pelo de 2.º día', 'Box / gym'], min: 2, needs: 'Scrunchie de satén', steps: 'Todo el pelo arriba del todo y scrunchie flojo: protege los rizos al dormir y al entrenar.' },
+  { name: 'Trenza lateral floja', tags: ['Diario', 'Pelo de 2.º día'], min: 7, needs: 'Goma pequeña', steps: 'Raya al lado, trenza suelta hacia un hombro y abre un poco las vueltas con los dedos.' },
+  { name: 'Rizos sueltos con horquillas doradas', tags: ['Rizos sueltos', 'Evento'], min: 5, needs: '2–3 horquillas doradas', steps: 'Raya al lado y sujeta el lado corto detrás de la oreja con las horquillas.' },
+  { name: 'Dos trenzas de boxeadora', tags: ['Box / gym'], min: 12, needs: '2 gomas', steps: 'Raya al medio y dos trenzas pegadas: no se mueven al entrenar.' },
+];
+let hairFilter = 'Todos'; let hairPick = null;
+function hairCard(h, big = false) {
+  const d = h.data; const src = linkSource(d.url);
+  return `<article class="hair ${big ? 'big' : ''}" data-hair="${h.id}">
+    <div class="hair-img ${d.photo ? '' : 'nophoto'}" style="${d.photo ? `background-image:url(${d.photo})` : ''}">${d.photo ? '' : `<span>${src ? src.e : '💇‍♀️'}</span>`}${d.fav ? '<i class="hair-fav">♥</i>' : ''}</div>
+    <div class="hair-t"><b>${esc(d.name || 'Peinado')}</b>
+      <span class="small muted">${[d.min ? `${d.min} min` : '', src ? src.l : '', d.tried ? (d.lastDone ? `última vez ${relDay(d.lastDone)}` : 'hecho') : 'por probar'].filter(Boolean).join(' · ')}</span></div>
+  </article>`;
+}
+function peinados(root) {
+  const all = itemsOf('hairdo');
+  const match = h => hairFilter === 'Todos' || hairFilter === 'Favoritos' && h.data.fav || (h.data.tags || []).includes(hairFilter);
+  const list = all.filter(match);
+  const mine = list.filter(h => h.data.tried).sort((a, b) => (b.data.fav - a.data.fav) || (b.data.count || 0) - (a.data.count || 0));
+  const todo = list.filter(h => !h.data.tried);
+  const pick = hairPick && all.find(h => h.id === hairPick);
+  root.innerHTML = `
+    <section class="card plan">
+      <h3 style="color:#F3F0EB">¿Qué me hago hoy?</h3>
+      <div class="chips mt-s">${['Todos', 'Favoritos', ...HAIR_TAGS].map(t => `<button class="chip small ${hairFilter === t ? 'on' : ''}" data-hf="${esc(t)}" style="${hairFilter === t ? 'background:#F3F0EB;color:#3A3734;border-color:#F3F0EB' : 'background:transparent;color:#F3F0EB;border-color:rgba(255,255,255,.25)'}">${esc(t)}</button>`).join('')}</div>
+      <button class="btn block mt" id="hairRandom" style="background:#F3F0EB;color:#3A3734" ${list.length ? '' : 'disabled'}>🎲 Elígeme uno</button>
+      ${pick ? `<div class="mt">${hairCard(pick, true)}</div>` : ''}
+    </section>
+    <div class="row gap"><button class="btn primary grow" id="hairAdd">${icon('plus')} Guardar peinado</button></div>
+    <p class="small muted">Lo ves en TikTok, Instagram o Pinterest → <b>Compartir → Copiar enlace</b> → aquí, <b>Guardar peinado</b> y "Pegar enlace". Si es una foto, haz captura y súbela.</p>
+    ${mine.length ? `<div class="section-head"><h2>Mis peinados</h2><span class="small muted">${mine.length}</span></div><div class="hair-grid">${mine.map(h => hairCard(h)).join('')}</div>` : ''}
+    ${todo.length ? `<div class="section-head"><h2>Por probar</h2><span class="small muted">${todo.length}</span></div><div class="hair-grid">${todo.map(h => hairCard(h)).join('')}</div>` : ''}
+    ${!all.length ? `<div class="card empty"><p>Aún no tienes peinados guardados.</p><button class="btn ghost" id="hairIdeas">Añadir 8 ideas para rizos finos</button></div>`
+      : !list.length ? '<p class="muted center">Ninguno con ese filtro.</p>' : ''}
+    ${all.length && !all.some(h => h.data.idea) ? '<button class="btn ghost block mt" id="hairIdeas">Añadir ideas para rizos finos</button>' : ''}`;
+  $$('[data-hf]', root).forEach(b => b.onclick = () => { hairFilter = b.dataset.hf; hairPick = null; rerender(); });
+  $('#hairRandom', root)?.addEventListener('click', () => {
+    if (!list.length) return;
+    // pesa más lo que hace tiempo que no te haces y lo que nunca has probado
+    const w = h => h.data.lastDone ? Math.min(30, diffDays(today(), h.data.lastDone)) + (h.data.fav ? 10 : 0) : 20;
+    const pool = list.filter(h => h.id !== hairPick); const arr = pool.length ? pool : list;
+    let r = Math.random() * arr.reduce((a, h) => a + w(h) + 1, 0);
+    hairPick = (arr.find(h => (r -= w(h) + 1) <= 0) || arr[0]).id; rerender();
+  });
+  $('#hairAdd', root).onclick = () => hairEdit(null);
+  $('#hairIdeas', root)?.addEventListener('click', async () => { for (const h of HAIR_IDEAS) await addItem('hairdo', { ...h, idea: true, tried: false }); toast('Ideas añadidas a Por probar'); rerender(); });
+  $$('[data-hair]', root).forEach(el => el.onclick = () => hairView(S.items.find(i => i.id === el.dataset.hair)));
+}
+function hairView(h) {
+  const d = h.data; const src = linkSource(d.url);
+  sheet(d.name || 'Peinado', `<div class="stack">
+    ${d.photo ? `<img src="${d.photo}" alt="" style="width:100%;border-radius:14px">` : ''}
+    ${d.url ? `<a class="btn ghost block" href="${esc(d.url)}" target="_blank" rel="noopener">${src?.e || '🔗'} Ver en ${esc(src?.l || 'el enlace')}</a>` : ''}
+    <div class="chips">${(d.tags || []).map(t => `<span class="chip small on">${esc(t)}</span>`).join('')}${d.min ? `<span class="chip small">⏱ ${d.min} min</span>` : ''}</div>
+    ${d.needs ? `<p class="small"><b>Necesitas:</b> ${esc(d.needs)}</p>` : ''}
+    ${d.steps ? `<p class="small" style="white-space:pre-line"><b>Cómo:</b> ${esc(d.steps)}</p>` : ''}
+    <p class="small muted">${d.count ? `Te lo has hecho ${d.count} ${d.count === 1 ? 'vez' : 'veces'}${d.lastDone ? `, la última ${relDay(d.lastDone)}` : ''}.` : 'Aún no te lo has hecho.'}</p>
+    <button class="btn primary block" id="hDone">✓ Me lo he hecho hoy</button>
+    <div class="row gap"><button class="btn ghost grow" id="hFav">${d.fav ? '♥ Quitar de favoritos' : '♡ Favorito'}</button><button class="btn ghost grow" id="hEdit">${icon('edit')} Editar</button></div></div>`, body => {
+    $('#hDone', body).onclick = async () => { await saveItem(h, { tried: true, lastDone: today(), count: (d.lastDone === today() ? (d.count || 1) : (d.count || 0) + 1) }); closeSheet(); toast('Guardado en Mis peinados'); rerender(); };
+    $('#hFav', body).onclick = async () => { await saveItem(h, { fav: !d.fav }); closeSheet(); rerender(); };
+    $('#hEdit', body).onclick = () => { closeSheet(); setTimeout(() => hairEdit(h), 200); };
+  });
+}
+export function hairEdit(h, pre = {}) {
+  const d = h?.data || { tags: [], ...pre };
+  let photo = d.photo || null;
+  sheet(h ? 'Editar peinado' : 'Guardar peinado', `<div class="stack">
+    <label class="field"><span>Enlace (TikTok, Instagram, Pinterest…)</span>
+      <div class="row gap"><input class="input grow" name="url" id="hUrl" inputmode="url" value="${esc(d.url || '')}" placeholder="https://…"><button type="button" class="btn ghost" id="hPaste">Pegar</button></div></label>
+    <div class="field"><span>Foto o captura (opcional)</span>
+      <div class="row gap"><div id="hPrev" class="hair-prev" style="${photo ? `background-image:url(${photo})` : ''}"></div>
+      <label class="btn ghost grow" style="cursor:pointer">📷 Elegir imagen<input type="file" accept="image/*" id="hFile" hidden></label>
+      <button type="button" class="btn ghost" id="hNoPhoto" ${photo ? '' : 'hidden'}>${icon('trash')}</button></div></div>
+    <label class="field"><span>Nombre</span><input name="name" value="${esc(d.name || '')}" placeholder="Moño bajo con lazo…"></label>
+    <div class="field"><span>Para cuándo</span><div class="chips">${HAIR_TAGS.map(t => `<label class="chip check small"><input type="checkbox" name="tags" data-multi="1" value="${esc(t)}" ${(d.tags || []).includes(t) ? 'checked' : ''}>${esc(t)}</label>`).join('')}</div></div>
+    <div class="row gap"><label class="field grow"><span>Minutos</span><input type="number" inputmode="numeric" name="min" value="${d.min || ''}"></label>
+      <label class="check-row" style="align-self:end"><input type="checkbox" name="tried" ${d.tried ? 'checked' : ''}><span>Ya me lo he hecho</span></label></div>
+    <label class="field"><span>Qué necesitas</span><input name="needs" value="${esc(d.needs || '')}" placeholder="Pinza, lazo, gel…"></label>
+    <label class="field"><span>Pasos o notas</span><textarea class="input" name="steps" rows="3">${esc(d.steps || '')}</textarea></label>
+    <div class="row gap">${h ? `<button class="btn danger ghost" id="hDel">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="hSave">Guardar</button></div></div>`, body => {
+    const urlIn = $('#hUrl', body); const nameIn = $('[name=name]', body);
+    const autoName = () => { const s = linkSource(urlIn.value.trim()); if (s && !nameIn.value) nameIn.placeholder = `Peinado de ${s.l}`; };
+    urlIn.oninput = autoName;
+    $('#hPaste', body).onclick = async () => {
+      try { const t = (await navigator.clipboard.readText()).trim(); const m = t.match(/https?:\/\/\S+/); if (m) { urlIn.value = m[0]; autoName(); } else toast('No hay ningún enlace copiado'); }
+      catch { urlIn.focus(); toast('Mantén pulsado el campo y pulsa Pegar'); }
+    };
+    $('#hFile', body).onchange = async e => {
+      const f = e.target.files?.[0]; if (!f) return;
+      try { photo = await imageToDataUrl(f); $('#hPrev', body).style.backgroundImage = `url(${photo})`; $('#hNoPhoto', body).hidden = false; } catch { toast('No se pudo leer la imagen'); }
+    };
+    $('#hNoPhoto', body).onclick = () => { photo = null; $('#hPrev', body).style.backgroundImage = ''; $('#hNoPhoto', body).hidden = true; };
+    $('#hSave', body).onclick = async () => {
+      const f = formData(body); const url = (f.url || '').trim();
+      if (!url && !photo && !f.name) return toast('Añade un enlace, una foto o un nombre');
+      const tags = $$('input[name=tags]', body).filter(i => i.checked).map(i => i.value);
+      const src = linkSource(url);
+      const data = { name: f.name || (src ? `Peinado de ${src.l}` : 'Peinado'), url: url || null, photo, tags, min: Number(f.min) || null, needs: f.needs || '', steps: f.steps || '', tried: !!f.tried };
+      if (data.tried && !h?.data.tried) Object.assign(data, { lastDone: d.lastDone || today(), count: d.count || 1 });
+      h ? await saveItem(h, data) : await addItem('hairdo', data);
+      closeSheet(); toast(data.tried ? 'Guardado en Mis peinados' : 'Guardado en Por probar'); rerender();
+    };
+    $('#hDel', body)?.addEventListener('click', async () => { if (await confirmBox('Borrar este peinado')) { await deleteItem(h); closeSheet(); rerender(); } });
+  });
 }
 
 // ------------------------------------------------------------------ VIAJE / NECESER

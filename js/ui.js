@@ -132,3 +132,28 @@ export const avatarHtml = (p, cls = '') => {
   const inner = a.startsWith('data:') ? `<img src="${a}" alt="">` : esc(a || (p.name || '?')[0]);
   return `<span class="avatar ${cls}" style="--pc:${esc(p.color)}">${inner}</span>`;
 };
+
+// Reduce una foto o captura a un JPEG pequeño (para guardarla dentro del registro)
+export function imageToDataUrl(file, max = 520, q = 0.72) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', q));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+    img.src = url;
+  });
+}
+// De qué red viene un enlace
+export function linkSource(u) {
+  if (!u) return null;
+  const h = (() => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+  if (/tiktok/.test(h)) return { k: 'tiktok', l: 'TikTok', e: '🎵' };
+  if (/instagram/.test(h)) return { k: 'instagram', l: 'Instagram', e: '📸' };
+  if (/pinterest|pin\.it/.test(h)) return { k: 'pinterest', l: 'Pinterest', e: '📌' };
+  if (/youtu/.test(h)) return { k: 'youtube', l: 'YouTube', e: '▶️' };
+  return h ? { k: 'web', l: h, e: '🔗' } : null;
+}
