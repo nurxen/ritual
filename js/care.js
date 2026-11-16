@@ -38,6 +38,7 @@ const PAGES = {
   inventario: { t: 'Inventario', e: '🧴', c: '#D6CFC6', d: 'Caducidad, compra y gasto' },
   perfumes: { t: 'Perfumes', e: '🌸', c: '#EFA3AE', d: 'Biblioteca y layering' },
   looks: { t: 'Looks', e: '💄', c: '#F2CF7E', d: 'Maquillaje guardado' },
+  estilo: { t: 'Estilo', e: '🎨', c: '#C7735F', d: 'Tus colores, reglas y carpetas' },
   peinados: { t: 'Peinados', e: '💇‍♀️', c: '#E8B796', d: 'Los que ves y los que te haces, en un sitio' },
   viaje: { t: 'Neceser', e: '🧳', c: '#A7BCEB', d: 'Lista para viajar' },
   guia: { t: 'Guía', e: '📖', c: '#A8C99A', d: 'Consejos de dermatólogos' },
@@ -51,7 +52,7 @@ export function renderCare(view, sub, sub2) {
     <div class="page-banner" style="--c:${P.c}"><h1>${P.t}</h1><p>${P.d}</p></div>
     <div id="careBody" style="--c:${P.c}"></div>`;
   const body = $('#careBody', view);
-  ({ rutinas, labios, ipl, tinte, calendarios, inventario, perfumes, looks, peinados, viaje, guia })[sub](body, sub2);
+  ({ rutinas, labios, ipl, tinte, calendarios, inventario, perfumes, looks, estilo, peinados, viaje, guia })[sub](body, sub2);
 }
 
 function hub(view) {
@@ -72,6 +73,7 @@ function hub(view) {
     inventario: exp ? `${exp} caducan pronto` : `${products().filter(p => !p.data.finished).length} en uso`,
     perfumes: `${itemsOf('perfume').length} perfumes`,
     looks: `${itemsOf('combo').filter(c => c.data.type === 'look').length} looks`,
+    estilo: settings().style ? settings().style.season : 'Tu paleta y reglas',
     peinados: (() => { const h = itemsOf('hairdo'); const p = h.filter(x => !x.data.tried).length; return h.length ? `${h.length - p} míos · ${p} por probar` : 'Guarda los que te gustan'; })(),
     viaje: 'Calcula cantidades',
     guia: (() => { const mine = itemsOf('guide').map(i => i.data); const hid = new Set(mine.flatMap(x => [].concat(x.replaces || []))); return `${mine.length + GUIDE.filter(g => !hid.has(g.id)).length} temas`; })(),
@@ -86,7 +88,7 @@ function hub(view) {
     <div class="page-title"><h1>Cuidado</h1></div>
     <div class="hub">
       ${tileH('rutinas', 'wide')}${lipsPlan() ? tileH('labios', 'wide') : ''}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
-      ${tileH('perfumes')}${tileH('looks')}${tileH('peinados', 'wide')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
+      ${tileH('perfumes')}${tileH('looks')}${tileH('estilo')}${tileH('peinados')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
     </div>
     ${lipsPlan() ? '' : '<p class="small muted mt">¿Quieres el plan para curar labios? Actívalo desde Labios en <a href="#/cuidado/labios">este enlace</a>.</p>'}`;
 }
@@ -852,6 +854,46 @@ function looks(root) {
       <li>Sleek bun para ir rápida, pero alterna con peinados flojos para no tirar del pelo.</li></ul></section>`;
   bindCombos(root);
   $('#ls3', root)?.addEventListener('click', async () => { for (const c of SAMPLE_COMBOS.filter(x => x.type === 'look')) await addItem('combo', c); rerender(); });
+}
+
+// ------------------------------------------------------------------ ESTILO (colores, reglas, carpetas, compras)
+let styleTab = 'colores';
+const swatch = (n, hex, sub = '') => `<div class="sw"><i style="background:${hex}"></i><b>${esc(n)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
+const strip = cs => `<span class="strip">${cs.map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
+function estilo(root) {
+  const st = settings().style;
+  if (!st) { root.innerHTML = '<div class="card empty"><p>Aún no hay un análisis de color para este perfil.</p></div>'; return; }
+  const tabs = [['colores', 'Colores'], ['reglas', 'Reglas'], ['carpetas', 'Carpetas'], ['compras', 'Compras']];
+  const ul = a => `<ul class="tips">${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const body = {
+    colores: () => `
+      <section class="card plan"><span class="small" style="color:#CFC7BE;letter-spacing:.08em;text-transform:uppercase">Tu estación</span>
+        <h2 style="color:#F3F0EB;margin:2px 0 6px">${esc(st.season)}</h2><p class="small" style="color:#CFC7BE">${esc(st.seasonNote)}</p>
+        <div class="traits">${st.traits.map(([n, d, h]) => `<div><i style="background:${h}"></i><b>${esc(n)}</b><span>${esc(d)}</span></div>`).join('')}</div></section>
+      ${st.palette.map(g => `<section class="card"><h3>${esc(g.t)}</h3><p class="small muted">${esc(g.d)}</p><div class="sws">${g.c.map(([n, h]) => swatch(n, h)).join('')}</div></section>`).join('')}
+      <section class="card"><h3>Te apagan cerca de la cara</h3><p class="small muted">${esc(st.avoidNote)}</p><div class="sws">${st.avoid.map(([n, h, alt]) => `<div class="sw no"><i style="background:${h}"></i><b>${esc(n)}</b><span>mejor ${esc(alt)}</span></div>`).join('')}</div></section>
+      <section class="card"><h3>Combinaciones que te favorecen</h3><div class="list">${st.combos.map(([n, cs, d]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
+      <section class="card"><h3>Maquillaje</h3><div class="list">${st.makeup.map(([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
+      <section class="card"><h3>Uñas</h3><div class="sws">${st.nails.map(([n, h]) => swatch(n, h)).join('')}</div><p class="small muted">${esc(st.nailsNote)}</p></section>
+      <section class="card"><h3>Color de pelo</h3><p class="small"><b class="ok-text">Te favorece</b></p>${ul(st.hair.yes)}<p class="small"><b class="warn-text">Mejor evitar</b></p>${ul(st.hair.no)}</section>`,
+    reglas: () => `
+      <section class="card"><h3>Tu fórmula</h3><div class="formula">${st.formula.map(([n, d, h]) => `<div><i style="background:${h}"></i><b>${esc(n)}</b><span class="small muted">${esc(d)}</span></div>`).join('')}</div></section>
+      <section class="card"><h3>Antes de guardar un outfit</h3>${ul(st.rules)}</section>
+      <section class="card"><h3>Úsalo con truco</h3><div class="list">${st.tricks.map(([n, d]) => `<div class="combo-row"><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
+      <section class="card"><h3>Tejidos y estampados</h3><p class="small"><b class="ok-text">Te favorece</b></p>${ul(st.fabrics.yes)}<p class="small"><b class="warn-text">Mejor lejos de la cara</b></p>${ul(st.fabrics.no)}</section>
+      <section class="card"><h3>Joyas y accesorios</h3>${ul(st.accessories)}</section>
+      <section class="card"><h3>Por temporada</h3><div class="list">${st.seasons.map(([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>`,
+    carpetas: () => `
+      <p class="small muted">Las carpetas de tus outfits en Whering, por ocasión.</p>
+      <div class="list card">${st.folders.map(([e, n, d, cs]) => `<div class="combo-row"><span class="fold-e">${e}</span><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span>${strip(cs)}</div>`).join('')}</div>`,
+    compras: () => `
+      <section class="card"><h3>Reglas al comprar</h3>${ul(st.shopping)}</section>
+      <section class="card"><h3>Lo que te falta, por orden</h3><ol class="steps">${st.wishlist.map(([n, d]) => `<li><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></li>`).join('')}</ol></section>
+      <section class="card"><h3>Básicos que siempre te funcionan</h3>${ul(st.basics)}</section>`,
+  };
+  if (!body[styleTab]) styleTab = 'colores';
+  root.innerHTML = `<div class="seg">${tabs.map(([k, l]) => `<button class="${styleTab === k ? 'on' : ''}" data-stab="${k}">${l}</button>`).join('')}</div>${body[styleTab]()}`;
+  $$('[data-stab]', root).forEach(b => b.onclick = () => { styleTab = b.dataset.stab; rerender(); window.scrollTo(0, 0); });
 }
 
 // ------------------------------------------------------------------ PEINADOS

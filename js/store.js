@@ -762,6 +762,7 @@ export async function applyPlan(plan) {
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
   if (plan.training && !s.training) extra.training = plan.training;
   if (plan.outDays && !s.outDays) extra.outDays = plan.outDays;
+  if (plan.style) extra.style = plan.style; // contenido de referencia: siempre la última versión
   if (plan.events) extra.events = [...(s.events || []), ...plan.events.filter(e => !(s.events || []).some(x => x.id === e.id) && !(s.eventsRemoved || []).includes(e.id))];
   await saveSettings({
     ...extra,
