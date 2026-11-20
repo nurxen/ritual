@@ -108,8 +108,9 @@ export const loadLeaflet = () => LP ||= new Promise((res, rej) => {
   s.onload = () => res(window.L); s.onerror = () => { LP = null; rej(new Error('leaflet')); }; document.head.appendChild(s);
 });
 const isDark = () => { const t = document.documentElement.dataset.theme; return t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches); };
-const tiles = L => L.tileLayer(isDark() ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  { subdomains: 'abcd', maxZoom: 19, attribution: '© OpenStreetMap · © CARTO' });
+// Mapa de OpenStreetMap (gratis y sin clave). En modo oscuro se oscurece con un filtro.
+const tiles = L => L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '© OpenStreetMap', className: isDark() ? 'tiles-dark' : 'tiles-soft' });
 const pinIcon = (L, d, big) => L.divIcon({ className: 'opin', html: `<span style="--c:${T(d)[3]}" class="${big ? 'big' : ''}">${T(d)[1]}</span>`, iconSize: [32, 32], iconAnchor: [16, 16] });
 
 async function mapView(body, list) {

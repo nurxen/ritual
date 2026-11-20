@@ -670,3 +670,5 @@ details.done-wrap > summary::before { content: '▸ '; } details.done-wrap[open]
 .omini { isolation: isolate; }
 .hub-ed .mini-seg { order: 5; width: 100%; margin-left: 30px; }
 .hub-ed .mini-seg button { flex: 1; padding: 6px 4px; }
+.tiles-soft { filter: saturate(.7) brightness(1.03); }
+.tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(.85) saturate(.5); }
