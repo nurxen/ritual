@@ -155,5 +155,6 @@ export function linkSource(u) {
   if (/instagram/.test(h)) return { k: 'instagram', l: 'Instagram', e: '📸' };
   if (/pinterest|pin\.it/.test(h)) return { k: 'pinterest', l: 'Pinterest', e: '📌' };
   if (/youtu/.test(h)) return { k: 'youtube', l: 'YouTube', e: '▶️' };
+  if (/maps\.app\.goo\.gl|google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.google/.test(h + new URL(u).pathname)) return { k: 'maps', l: 'Google Maps', e: '📍' };
   return h ? { k: 'web', l: h, e: '🔗' } : null;
 }

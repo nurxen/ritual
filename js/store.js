@@ -743,6 +743,8 @@ export async function applyPlan(plan) {
     } else if (planVersionApplied(plan) < 6) await addItem('perfume', { ...f, planNote: f.note });
   }
   for (const c of pv.combos) await addItem('combo', c);
+  // Ideas de planes (solo la primera vez; las que borres no vuelven)
+  if (plan.outings && planVersionApplied(plan) < 15) for (const o of plan.outings) if (!itemsOf('outing').some(x => x.data.name === o.name)) await addItem('outing', { ...o, idea: true });
   for (const gid of plan.guideRemove || []) {
     for (const it of itemsOf('guide').filter(i => i.data.gid === gid)) await deleteItem(it);
   }
@@ -762,6 +764,7 @@ export async function applyPlan(plan) {
   if (plan.settings?.lips && !s.lips) extra.lips = { ...plan.settings.lips, start: today() };
   if (plan.training && !s.training) extra.training = plan.training;
   if (plan.outDays && !s.outDays) extra.outDays = plan.outDays;
+  if (plan.nailsGuide) extra.nailsGuide = plan.nailsGuide;
   if (plan.style) extra.style = plan.style; // contenido de referencia: siempre la última versión
   if (plan.events) extra.events = [...(s.events || []), ...plan.events.filter(e => !(s.events || []).some(x => x.id === e.id) && !(s.eventsRemoved || []).includes(e.id))];
   await saveSettings({
