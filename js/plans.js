@@ -13,8 +13,8 @@
 const L = 'Maquillaje';
 export const PLANS = [{
   id: 'nuria-2026-10',
-  version: 16,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
-  changes: 'Planes con mapa y su propia pestaña; Mente y Progreso pasan a "Más"; Cuidado con lo diario arriba (Tinte oculto); y el kit de uñas y las compras de Estilo ya se editan desde la app.',
+  version: 17,   // súbelo cuando añadas novedades: la app avisará de que hay cambios
+  changes: 'Tus listas de Google Maps ("Sitios guays" y "Comer por Madrid") ya están en Planes, en "Guardados por ti". Además: Planes con mapa y su propia pestaña, Mente y Progreso en "Más", Cuidado con lo diario arriba, y el kit de uñas y las compras de Estilo editables.',
   title: 'Renovación de neceser (octubre 2026)',
   forName: /nuria/i,
   summary: 'Qué guardar, qué gastar, qué dejar y qué comprar; tu rutina nueva; el plan para curar los labios; pelo, desmaquillado, cuerpo, protocolo IPL y perfume.',
@@ -478,6 +478,38 @@ export const PLANS = [{
   outDays: [5, 6, 0],
   // Ideas de planes en Madrid (Agenda → Planes). cost: 0 gratis · 15 hasta 15 € · 35 de 15 a 35 € · 99 más de 35 €
   careLayout: { top: ['rutinas', 'peinados', 'unas', 'inventario', 'ipl'], rest: ['calendarios', 'estilo', 'perfumes', 'looks', 'viaje', 'guia', 'labios'], hidden: ['tinte'] },
+  // Tus listas de Google Maps ("Sitios guays" y "Comer por Madrid"). Sin coordenadas: la app las busca sola en el mapa.
+  myPlaces: [
+    { name: 'Karting Asupark', zone: 'Afueras', cost: 35, types: ['activo'], move: 'coche', q: 'Karting Asupark', list: 'Sitios guays' },
+    { name: 'Planetario de Madrid', zone: 'Parque Tierno Galván', cost: 15, types: ['cultura'], move: 'metro', q: 'Planetario de Madrid', ll: [40.3925, -3.6847], notes: 'Mira la cartelera de sesiones y compra la entrada antes.', list: 'Sitios guays' },
+    { name: 'OXO Museo del Videojuego', zone: 'Centro', cost: 15, types: ['cultura'], move: 'metro', q: 'OXO Museo del Videojuego Madrid', notes: 'En tu lista ponía "cerrado temporalmente": compruébalo antes de ir.', list: 'Sitios guays' },
+    { name: 'Oki Doki · Matcha', zone: 'Madrid', cost: 15, types: ['comer'], move: 'metro', q: 'Oki Doki Matcha Madrid', list: 'Sitios guays' },
+    { name: 'La Mejor Tarta de Chocolate del Mundo', zone: 'Madrid', cost: 15, types: ['comer'], move: 'metro', q: 'La Mejor Tarta de Chocolate del Mundo Madrid', list: 'Sitios guays y Comer por Madrid' },
+    { name: 'Casto · Coffee and Bakery', zone: 'Madrid', cost: 15, types: ['comer'], move: 'metro', q: 'Casto Coffee and Bakery Madrid', list: 'Sitios guays y Comer por Madrid' },
+    { name: 'Muchacha', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'Muchacha cafetería Madrid', list: 'Sitios guays' },
+    { name: 'Palacio Real', zone: 'Ópera', cost: 15, types: ['cultura', 'paseo'], move: 'metro', q: 'Palacio Real de Madrid', ll: [40.418, -3.7143], notes: 'Mira en su web si hay franjas de entrada gratuita. Al lado: Jardines de Sabatini y Templo de Debod.', list: 'Sitios guays' },
+    { name: 'Sky 44 Rooftop', zone: 'Madrid', cost: 35, types: ['comer', 'noche'], move: 'metro', q: 'Sky 44 Rooftop Madrid', notes: 'Mejor al atardecer.', list: 'Sitios guays' },
+    { name: 'Realidad virtual en Meetspace VR · Zero Latency', zone: 'Madrid', cost: 35, types: ['activo'], move: 'metro', q: 'Meetspace VR Zero Latency Madrid', notes: 'Reservar; ideal en grupo de 4 a 8.', list: 'Sitios guays' },
+    { name: '95 Art Gallery', zone: 'Madrid', cost: 0, types: ['cultura'], move: 'metro', q: '95 Art Gallery Madrid', list: 'Sitios guays' },
+    { name: 'Hartem, tienda de bellas artes', zone: 'Madrid', cost: 15, types: ['manual'], move: 'metro', q: 'Hartem Tienda de Bellas Artes Madrid', notes: 'Para comprar material antes de una tarde de manualidades en casa.', list: 'Sitios guays' },
+    { name: 'Urban Invaders', zone: 'Madrid', cost: 35, types: ['activo'], move: 'metro', q: 'Urban Invaders Madrid', list: 'Sitios guays' },
+    { name: 'Atoope Park', zone: 'Getafe', cost: 35, types: ['activo'], move: 'cercanias', q: 'Atoope Park Getafe', notes: 'Getafe: Cercanías C-4.', list: 'Sitios guays' },
+    { name: 'Ooh Lala Candle · velas y café', zone: 'Ópera', cost: 35, types: ['manual', 'comer'], move: 'metro', q: 'Ooh Lala Candle Ópera Madrid', notes: 'Haces tu vela mientras tomas algo. Reservar.', list: 'Sitios guays' },
+    { name: 'Brio Atelier · pintar cerámica', zone: 'Madrid', cost: 35, types: ['manual'], move: 'metro', q: 'Brio Atelier taller de pintura en cerámica Madrid', notes: 'Reservar. La pieza se recoge días después, cuando la hayan cocido.', list: 'Sitios guays' },
+    { name: '99 Cheesecake', zone: 'Malasaña', cost: 15, types: ['comer'], move: 'metro', q: '99 Cheesecake Malasaña Madrid', list: 'Sitios guays y Comer por Madrid' },
+    { name: 'La Fresería', zone: 'Madrid', cost: 15, types: ['comer'], move: 'metro', q: 'La Fresería Madrid', list: 'Sitios guays y Comer por Madrid' },
+    { name: 'La Rosaleda del Parque del Oeste', zone: 'Parque del Oeste', cost: 0, types: ['paseo', 'naturaleza'], seasons: ['primavera', 'verano'], move: 'metro', q: 'La Rosaleda Parque del Oeste Madrid', ll: [40.4287, -3.723], notes: 'Las rosas están en su mejor momento en mayo y junio.', list: 'Sitios guays' },
+    { name: 'Sitio guardado en Móstoles (C. Teruel)', zone: 'Móstoles', cost: 15, types: ['comer'], move: 'coche', q: 'Calle Teruel, Móstoles', notes: 'En tu lista estaba como marcador sin nombre: edítalo y ponle el nombre.', list: 'Comer por Madrid' },
+    { name: 'Katsu · Castellana', zone: 'Castellana', cost: 35, types: ['comer'], move: 'metro', q: 'Katsu Castellana Madrid', list: 'Comer por Madrid' },
+    { name: 'Bar Dimsum', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'Bar Dimsum Madrid', list: 'Comer por Madrid' },
+    { name: 'Los Rotos', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'Los Rotos bar de tapas Madrid', list: 'Comer por Madrid' },
+    { name: 'La Primera', zone: 'Gran Vía', cost: 35, types: ['comer'], move: 'metro', q: 'La Primera restaurante Gran Vía Madrid', list: 'Comer por Madrid' },
+    { name: 'El Rancho Urban', zone: 'Madrid', cost: 15, types: ['comer'], move: 'metro', q: 'El Rancho Urban Madrid', list: 'Comer por Madrid' },
+    { name: 'Divorare · focaccia', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'DIVORARE Focaccia Madrid', list: 'Comer por Madrid' },
+    { name: 'HongKongji · cocina de Hong Kong', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'Restaurante Chino HongKongji Madrid', list: 'Comer por Madrid' },
+    { name: 'Circolo Popolare', zone: 'Madrid', cost: 35, types: ['comer'], move: 'metro', q: 'Circolo Popolare Madrid', notes: 'Suele haber cola: reserva o ve pronto.', list: 'Comer por Madrid' },
+    { name: 'Ochenta Grados · Castellana', zone: 'Castellana', cost: 35, types: ['comer'], move: 'metro', q: 'Ochenta Grados Castellana Madrid', list: 'Comer por Madrid' },
+  ],
   outings: [
     { name: 'Atardecer en el Templo de Debod y el Mirador de la Cornisa', zone: 'Plaza de España', cost: 0, types: ['paseo', 'cultura'], seasons: ['todo'], move: 'metro', dur: '1–2 h', q: 'Templo de Debod Madrid', ll: [40.424, -3.7178] },
     { name: 'Museo del Prado gratis', zone: 'Paseo del Prado', cost: 0, types: ['cultura'], seasons: ['todo'], move: 'metro', dur: '2 h', notes: 'Gratis de lunes a sábado de 18 a 20 h y domingos de 17 a 19 h. Comprueba antes en su web.', q: 'Museo del Prado', ll: [40.4138, -3.6921] },

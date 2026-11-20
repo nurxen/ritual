@@ -134,6 +134,21 @@ async function mapView(body, list) {
   const focus = oZoom === 'city' ? pts.filter(o => inCity(o.data.ll)) : pts;
   if (focus.length > 1) MAP.fitBounds(focus.map(o => o.data.ll), { padding: [30, 30], maxZoom: 14 });
   else if (focus.length === 1) MAP.setView(focus[0].data.ll, 14);
+  autoLocate(L);
+}
+// Los sitios guardados sin coordenadas se buscan solos (uno por segundo, como pide OpenStreetMap)
+let locating = false;
+async function autoLocate(L) {
+  if (locating) return; locating = true;
+  const todo = itemsOf('outing').filter(o => o.data.geo === 'auto' && !o.data.ll);
+  for (const o of todo) {
+    const p = await geocode(o.data.q || `${o.data.name}, Madrid`, true);
+    if (p === undefined) break; // sin conexión: lo intenta otro día
+    await saveItem(o, p ? { ll: p, geo: 'ok' } : { geo: 'fail' });
+    if (p && MAP && L && filtered().includes(o)) L.marker(p, { icon: pinIcon(L, o.data) }).addTo(MAP).on('click', () => outView(o));
+    await new Promise(r => setTimeout(r, 1100));
+  }
+  locating = false;
 }
 
 // ---------- Ficha del plan
@@ -150,6 +165,8 @@ function outView(o) {
     <div class="chips">${[COSTS.find(x => x[0] === d.cost)?.[1], ...(d.types || []).map(t => { const x = OTYPES.find(y => y[0] === t); return x && `${x[1]} ${x[2]}`; }), ...(d.seasons || []).filter(t => t !== 'todo').map(t => OSEAS.find(x => x[0] === t)?.[1]), OMOVE.find(m => m[0] === d.move)?.[1], d.dur].filter(Boolean).map(t => `<span class="chip small on">${esc(t)}</span>`).join('')}</div>
     ${d.zone ? `<p class="small"><b>Dónde:</b> ${esc(d.zone)}</p>` : ''}
     ${d.notes ? `<p class="small">${esc(d.notes)}</p>` : ''}
+    ${d.list ? `<p class="small muted">De tu lista de Maps: ${esc(d.list)}</p>` : ''}
+    ${d.geo === 'fail' ? '<p class="small muted">No lo he encontrado en el mapa: en Editar puedes poner el pin.</p>' : ''}
     <div class="row gap">
       ${noPlace ? '' : `<a class="btn ghost grow" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=${d.move === 'coche' ? 'driving' : 'transit'}" target="_blank" rel="noopener">🧭 Cómo llegar</a>`}
       ${d.url ? `<a class="btn ghost grow" href="${esc(d.url)}" target="_blank" rel="noopener">${src?.e || '🔗'} ${esc(src?.l || 'Enlace')}</a>` : ''}</div>
@@ -167,13 +184,13 @@ const llFromUrl = u => {
   const m = (u || '').match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || (u || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || (u || '').match(/[?&](?:q|ll|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
   return m ? [Number(m[1]), Number(m[2])] : null;
 };
-async function geocode(text) {
+async function geocode(text, bounded = false) {
   try {
     const ctl = new AbortController(); setTimeout(() => ctl.abort(), 5000);
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&viewbox=-4.6,41.2,-3.0,39.9&q=${encodeURIComponent(text)}`, { signal: ctl.signal });
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&accept-language=es&viewbox=-4.6,41.2,-3.0,39.9${bounded ? '&bounded=1' : ''}&q=${encodeURIComponent(text)}`, { signal: ctl.signal });
     const j = await r.json();
     return j[0] ? [Number(Number(j[0].lat).toFixed(5)), Number(Number(j[0].lon).toFixed(5))] : null;
-  } catch { return null; }
+  } catch { return undefined; }
 }
 function outEdit(o) {
   const d = o?.data || { cost: 0, types: [], seasons: ['todo'], move: 'metro' };
@@ -234,7 +251,7 @@ function outEdit(o) {
       const pickAll = n => $$(`input[name=${n}]`, body).filter(i => i.checked).map(i => i.value);
       const data = { name: name || (src ? `Plan de ${src.l}` : 'Plan'), url: url || null, zone, notes: $('#oNotes', body).value.trim(),
         cost: Number($('input[name=cost]:checked', body)?.value ?? 0), types: pickAll('types'), seasons: pickAll('seasons').length ? pickAll('seasons') : ['todo'],
-        move: $('input[name=move]:checked', body)?.value || 'metro', ll: ll || null };
+        move: $('input[name=move]:checked', body)?.value || 'metro', ll: ll || null, geo: ll ? 'ok' : (d.geo === 'auto' ? 'fail' : d.geo || null) };
       if (!o) data.idea = false;
       o ? await saveItem(o, data) : await addItem('outing', data);
       closeSheet(); toast('Plan guardado'); rerender();

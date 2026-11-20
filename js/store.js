@@ -745,6 +745,8 @@ export async function applyPlan(plan) {
   for (const c of pv.combos) await addItem('combo', c);
   // Ideas de planes (solo la primera vez; las que borres no vuelven)
   if (plan.outings && planVersionApplied(plan) < 15) for (const o of plan.outings) if (!itemsOf('outing').some(x => x.data.name === o.name)) await addItem('outing', { ...o, idea: true });
+  if (plan.myPlaces && planVersionApplied(plan) < 17) for (const o of plan.myPlaces) if (!itemsOf('outing').some(x => x.data.name === o.name)) await addItem('outing', { seasons: ['todo'], ...o, idea: false, ...(o.ll ? {} : { geo: 'auto' }) });
+  if (plan.myPlaces && planVersionApplied(plan) < 17) for (const n of ['Thyssen gratis el lunes', 'Chocolate con churros en San Ginés']) { const it = itemsOf('outing').find(x => x.data.name === n); if (it && !it.data.fav) await saveItem(it, { fav: true }); }
   if (plan.outings && planVersionApplied(plan) < 16) for (const o of plan.outings) { const it = itemsOf('outing').find(x => x.data.name === o.name); if (it && o.ll && !it.data.ll) await saveItem(it, { ll: o.ll }); }
   for (const gid of plan.guideRemove || []) {
     for (const it of itemsOf('guide').filter(i => i.data.gid === gid)) await deleteItem(it);
