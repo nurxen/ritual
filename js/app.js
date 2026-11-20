@@ -18,6 +18,7 @@ import { renderCare } from './care.js';
 import { renderProgress } from './progress.js';
 import { renderAgenda } from './agenda.js';
 import { renderMente } from './mente.js';
+import { renderPlanes, planInvite } from './planes.js';
 import { renderSettings, openMenu, planSheet } from './settings.js';
 import { startTimer, TIMER_KINDS, fmtShortSec } from './timers.js';
 import { planVersionApplied } from './store.js';
@@ -198,8 +199,9 @@ function renderOnboarding() {
 // ---------------- Shell y navegación ----------------
 const TABS = [
   ['hoy', 'Hoy', 'hoy'], ['agenda', 'Agenda', 'cal'], ['cuidado', 'Cuidado', 'care'],
-  ['mente', 'Mente', 'mind'], ['progreso', 'Progreso', 'stats'],
+  ['planes', 'Planes', 'pin'], ['mas', 'Más', 'grid'],
 ];
+const UNDER_MAS = ['mente', 'progreso', 'ajustes'];
 function renderShell() {
   app.innerHTML = `<main id="view" class="page"></main>
     <nav class="tabbar">${TABS.map(([k, l, i]) => `<a href="#/${k}" data-tab="${k}">${icon(i)}<span>${l}</span></a>`).join('')}</nav>`;
@@ -210,16 +212,42 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 
 export function rerender() {
   const view = $('#view'); if (!view) return;
-  const [, tab = 'hoy', sub, sub2] = location.hash.split('/');
-  $$('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
+  let [, tab = 'hoy', sub, sub2] = location.hash.split('/');
+  if (tab === 'agenda' && sub === 'planes') tab = 'planes';
+  const navTab = UNDER_MAS.includes(tab) ? 'mas' : tab;
+  $$('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === navTab));
   const pages = {
     hoy: () => renderHoy(view), agenda: () => renderAgenda(view, sub), cuidado: () => renderCare(view, sub, sub2),
-    mente: () => renderMente(view, sub), progreso: () => renderProgress(view, sub), ajustes: () => renderSettings(view, sub),
+    mente: () => renderMente(view, sub), planes: () => renderPlanes(view), mas: () => renderMas(view), progreso: () => renderProgress(view, sub), ajustes: () => renderSettings(view, sub),
   };
   (pages[tab] || pages.hoy)();
   bindTopbar(view);
 }
 export const go = h => { if (location.hash === h) rerender(); else location.hash = h; };
+
+// Página "Más": lo que se consulta de vez en cuando (Mente, Progreso, ajustes)
+function renderMas(view) {
+  const row = (href, e, t, d) => `<a class="hub-row" href="${href}"><span class="h-emoji">${e}</span><span class="grow"><b>${t}</b><span>${d}</span></span>${icon('right')}</a>`;
+  view.innerHTML = `${topbar()}
+    <div class="page-title"><h1>Más</h1></div>
+    <div class="section-head"><h2>Mente</h2></div>
+    <div class="card hub-list">
+      ${row('#/mente/suenos', '🌙', 'Sueños', 'Lo que quieres conseguir algún día')}
+      ${row('#/mente/objetivos', '🎯', 'Objetivos', 'Metas con pasos')}
+      ${row('#/mente/foco', '⏳', 'Foco', 'Sesiones de concentración')}
+      ${row('#/mente/ingles', '🇬🇧', 'Inglés', 'Práctica diaria')}</div>
+    <div class="section-head"><h2>Progreso</h2></div>
+    <div class="card hub-list">
+      ${row('#/progreso/semana', '📊', 'Tu semana', 'Cómo vas con los hábitos')}
+      ${row('#/progreso/rachas', '🔥', 'Rachas', 'Días seguidos')}
+      ${row('#/progreso/ejercicio', '🏋️', 'Ejercicio', 'Entrenos y kilómetros')}
+      ${row('#/progreso/datos', '🗂️', 'Datos', 'Historial completo')}</div>
+    <div class="section-head"><h2>Ajustes</h2></div>
+    <div class="card hub-list">
+      ${row('#/ajustes/categorias', '⚙️', 'Hábitos y categorías', 'Qué aparece en Hoy')}
+      <button class="hub-row" id="masMenu"><span class="h-emoji">⋯</span><span class="grow"><b>Más opciones</b><span>Perfil, tema, copia de datos, planes de cuidado</span></span>${icon('right')}</button></div>`;
+  $('#masMenu', view).onclick = openMenu;
+}
 
 // Barra superior: nombre a la izquierda, perfil y más opciones a la derecha
 export function topbar() {
@@ -489,6 +517,7 @@ export function renderHoy(view) {
     ${tips.length ? tips.map(t => `<p class="note ${t.tone === 'warn' ? 'warn' : ''}" style="margin:0 0 8px">${t.icon === 'sun' ? '☀️' : '💧'} ${esc(t.msg)}</p>`).join('') : ''}
     ${isToday ? planCard() : ''}
     ${alertCards()}
+    ${isToday ? planInvite() : ''}
     <div class="section-head"><h2>Hábitos</h2><a href="#/ajustes/categorias">Editar</a></div>
     ${cats.length ? `${todo.length ? `<p class="sub-head">Te falta hoy · ${todo.length}</p><div class="tiles" id="tiles">${todo.map(c => tile(c, day)).join('')}</div>` : '<div class="card empty"><p>¡Todo lo de hoy, hecho! ✨</p></div>'}
       ${logs.length ? `<p class="sub-head">Registro del día y cuando toque</p><div class="minis">${logs.map(c => mini(c, day)).join('')}</div>` : ''}

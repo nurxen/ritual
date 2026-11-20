@@ -11,6 +11,7 @@ import {
   CARE_CATALOG, CARE_GROUPS, CARE_GROUP_COLORS, DYE_TYPES, DYE_PLACES, STATUS, AREAS, MAKEUP_SUBS, DOW_SHORT, LIP_TRIGGERS,
 } from './data.js';
 import { topbar, rerender } from './app.js';
+import { edCard, edNote, bindEd, setAt } from './edit.js';
 import { TIMER_KINDS, suggestTimer, fmtShortSec, startTimer } from './timers.js';
 
 // Botón ⏱ para cualquier elemento con temporizador (producto, calendario o tinte)
@@ -84,15 +85,48 @@ function hub(view) {
   const shop = shoppingList();
   status.inventario = exp ? `${exp} caducan pronto` : shop.wish.length ? `${shop.wish.length} por comprar` : status.inventario;
   const badge = { ipl: zDue, calendarios: cDue, inventario: exp, tinte: roots && careStatus(roots).due ? 1 : 0 };
+  const { top, rest } = careLayout();
   const tileH = (k, cls = '') => `<a class="hub-tile ${cls}" href="#/cuidado/${k}" style="--c:${PAGES[k].c}">
       ${badge[k] ? `<span class="h-badge">${badge[k]}</span>` : ''}<span class="h-emoji">${PAGES[k].e}</span><b>${PAGES[k].t}</b><span>${status[k]}</span></a>`;
+  const rowH = k => `<a class="hub-row" href="#/cuidado/${k}" style="--c:${PAGES[k].c}"><span class="h-emoji">${PAGES[k].e}</span>
+      <span class="grow"><b>${PAGES[k].t}</b><span>${status[k]}</span></span>${badge[k] ? `<span class="h-badge">${badge[k]}</span>` : ''}${icon('right')}</a>`;
   view.innerHTML = `${topbar()}
     <div class="page-title"><h1>Cuidado</h1></div>
-    <div class="hub">
-      ${tileH('rutinas', 'wide')}${lipsPlan() ? tileH('labios', 'wide') : ''}${tileH('ipl')}${tileH('tinte')}${tileH('calendarios')}${tileH('inventario')}
-      ${tileH('perfumes')}${tileH('looks')}${tileH('estilo')}${tileH('unas')}${tileH('peinados', 'wide')}${tileH('viaje', 'light')}${tileH('guia', 'light')}
-    </div>
-    ${lipsPlan() ? '' : '<p class="small muted mt">¿Quieres el plan para curar labios? Actívalo desde Labios en <a href="#/cuidado/labios">este enlace</a>.</p>'}`;
+    <div class="hub">${top.map((k, i) => tileH(k, i === 0 || (top.length % 2 === 0 && i === top.length - 1) ? 'wide' : '')).join('')}</div>
+    ${rest.length ? `<div class="section-head"><h2>Para consultar</h2></div><div class="card hub-list">${rest.map(rowH).join('')}</div>` : ''}
+    <button class="link-btn mt" id="hubEdit">${icon('edit')} Ordenar y ocultar secciones</button>`;
+  $('#hubEdit', view).onclick = hubEditor;
+}
+// Qué secciones van arriba (uso diario), cuáles abajo (consultar) y cuáles ocultas. Se guarda por perfil.
+const DEF_TOP = ['rutinas', 'ipl', 'inventario', 'calendarios', 'peinados', 'unas'];
+function careLayout() {
+  const L = settings().careLayout || {};
+  const hidden = new Set(L.hidden || []);
+  const top = (L.top || DEF_TOP).filter(k => PAGES[k] && !hidden.has(k));
+  const order = L.rest || [];
+  const rest = Object.keys(PAGES).filter(k => !top.includes(k) && !hidden.has(k))
+    .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  return { top, rest, hidden: [...hidden] };
+}
+function hubEditor() {
+  const L = careLayout();
+  const state = {}; L.top.forEach(k => state[k] = 'top'); L.rest.forEach(k => state[k] = 'rest'); L.hidden.forEach(k => state[k] = 'hidden');
+  let order = [...L.top, ...L.rest, ...L.hidden];
+  const draw = body => {
+    body.innerHTML = `<p class="small muted">Arriba van en grande; "Consultar" en una lista corta debajo. Usa las flechas para ordenar.</p>
+      <div class="ed-list">${order.map((k, i) => `<div class="hub-ed"><span class="h-emoji">${PAGES[k].e}</span><b class="grow">${PAGES[k].t}</b>
+        <span class="mini-seg">${[['top', 'Arriba'], ['rest', 'Consultar'], ['hidden', 'Oculta']].map(([v, l]) => `<button class="${state[k] === v ? 'on' : ''}" data-hk="${k}" data-hv="${v}">${l}</button>`).join('')}</span>
+        <span class="hub-arrows"><button data-hup="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">${icon('up')}</button><button data-hdown="${i}" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Bajar">${icon('down')}</button></span></div>`).join('')}</div>
+      <button class="btn primary block mt" id="hubOk">Guardar</button>`;
+    $$('[data-hk]', body).forEach(b => b.onclick = () => { state[b.dataset.hk] = b.dataset.hv; draw(body); });
+    $$('[data-hup]', body).forEach(b => b.onclick = () => { const i = Number(b.dataset.hup); [order[i - 1], order[i]] = [order[i], order[i - 1]]; draw(body); });
+    $$('[data-hdown]', body).forEach(b => b.onclick = () => { const i = Number(b.dataset.hdown); [order[i + 1], order[i]] = [order[i], order[i + 1]]; draw(body); });
+    $('#hubOk', body).onclick = async () => {
+      await saveSettings({ careLayout: { top: order.filter(k => state[k] === 'top'), rest: order.filter(k => state[k] === 'rest'), hidden: order.filter(k => state[k] === 'hidden') } });
+      closeSheet(); rerender();
+    };
+  };
+  sheet('Secciones de Cuidado', '<div id="hubEd"></div>', body => draw($('#hubEd', body)));
 }
 
 // ------------------------------------------------------------------ RUTINAS
@@ -844,84 +878,123 @@ function comboEdit(c, type) {
     $('#del', body)?.addEventListener('click', async () => { if (await confirmBox(`Borrar "${d.name}"`)) { await deleteItem(c); rerender(); } });
   });
 }
+const LOOK_TIPS = ['Piel jugosa: hidratante + SPF, corrector solo donde haga falta.', 'Cejas peinadas hacia arriba con gel transparente.', 'Colorete en crema y bálsamo labial.', 'Uñas cortas, neutras y cutículas hidratadas.', 'Sleek bun para ir rápida, pero alterna con peinados flojos para no tirar del pelo.'];
 function looks(root) {
   const list = itemsOf('combo').filter(c => c.data.type === 'look');
   root.innerHTML = `${list.map(comboCard).join('') || '<div class="card empty"><button class="btn primary" id="ls3">Cargar looks de ejemplo</button></div>'}
     <button class="btn ghost block" data-newcombo="look">${icon('plus')} Nuevo look</button>
-    <section class="card mt"><h3>Clean girl, en corto</h3><ul class="tips">
-      <li>Piel jugosa: hidratante + SPF, corrector solo donde haga falta.</li>
-      <li>Cejas peinadas hacia arriba con gel transparente.</li>
-      <li>Colorete en crema y bálsamo labial.</li>
-      <li>Uñas cortas, neutras y cutículas hidratadas.</li>
-      <li>Sleek bun para ir rápida, pero alterna con peinados flojos para no tirar del pelo.</li></ul></section>`;
+    ${edCard({ title: 'Clean girl, en corto', path: ['looksTips'], def: LOOK_TIPS, fields: T_S, wrap: 'ul', row: x => esc(x), cls: 'mt' })}`;
+  bindEd(root);
   bindCombos(root);
   $('#ls3', root)?.addEventListener('click', async () => { for (const c of SAMPLE_COMBOS.filter(x => x.type === 'look')) await addItem('combo', c); rerender(); });
 }
 
 // ------------------------------------------------------------------ UÑAS
+const T_N = { i: 0, l: 'Nombre' }; const T_D = i => ({ i, l: 'Para qué / notas', t: 'area' }); const T_C = i => ({ i, l: 'Colores', t: 'colors' });
+const T_S = [{ i: null, l: 'Texto', t: 'area' }];
+const rowND = ([n, d]) => `<div class="combo-row"><span class="grow"><b>${esc(n)}</b>${d ? `<br><span class="small muted">${esc(d)}</span>` : ''}</span></div>`;
+const seasonNow = () => { const m = new Date().getMonth(); return m === 11 || m <= 1 ? 'Invierno y Navidad' : m <= 4 ? 'Primavera' : m <= 8 ? 'Verano' : 'Otoño'; };
 function unas(root) {
   const g = settings().nailsGuide;
   if (!g) { root.innerHTML = '<div class="card empty"><p>Aún no hay guía de uñas para este perfil.</p></div>'; return; }
-  const m = new Date().getMonth(); // 0 = enero
-  const cur = m === 11 || m === 0 ? 'Invierno y Navidad' : m <= 1 ? 'Invierno y Navidad' : m <= 4 ? 'Primavera' : m <= 8 ? 'Verano' : 'Otoño';
+  const cur = seasonNow();
   const care = itemsOf('care').find(i => i.data.key === 'nails');
-  const tag = { nuevo: ['pill accent', 'Nuevo'], tengo: ['pill', 'Ya lo tienes'], revisar: ['pill warn', 'Revisar'] };
+  const ss = g.seasons || [];
+  const s = ss.find(x => x[0] === cur); const a = ss[0];
   root.innerHTML = `
     <section class="card plan"><span class="small" style="color:#CFC7BE;letter-spacing:.08em;text-transform:uppercase">Ahora toca</span>
       <h2 style="color:#F3F0EB;margin:2px 0 6px">${cur}</h2>
-      ${(() => { const s = g.seasons.find(x => x[0] === cur); const a = g.seasons[0]; return `<div class="row gap" style="align-items:center">${strip(s[2])}<span class="small" style="color:#CFC7BE">${esc(s[1])}</span></div>
-        <div class="row gap mt-s" style="align-items:center">${strip(a[2])}<span class="small" style="color:#CFC7BE">Siempre: ${esc(a[1])}</span></div>`; })()}
+      ${s ? `<div class="row gap" style="align-items:center">${strip(s[2] || [])}<span class="small" style="color:#CFC7BE">${esc(s[1] || '')}</span></div>` : ''}
+      ${a && a !== s ? `<div class="row gap mt-s" style="align-items:center">${strip(a[2] || [])}<span class="small" style="color:#CFC7BE">${esc(a[0])}: ${esc(a[1] || '')}</span></div>` : ''}
       ${care ? `<p class="small mt-s" style="color:#CFC7BE">Manicura: ${careStatus(care).due ? '<b style="color:#F3F0EB">toca ya</b>' : `próxima ${relDay(careStatus(care).next)}`}</p>` : ''}
     </section>
-    <section class="card"><h3>Colores por temporada</h3><div class="list">${g.seasons.map(([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b>${n === cur ? ' <span class="pill accent">ahora</span>' : ''}<br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div>
-      <p class="small muted">${esc(g.avoid)}</p><p class="small"><b>Forma:</b> ${esc(g.shape)}</p></section>
-    <section class="card"><h3>Paso a paso: tips y francesa</h3><ol class="steps">${g.steps.map(([t, d]) => `<li><span class="grow"><b>${esc(t)}</b><br><span class="small muted">${esc(d)}</span></span></li>`).join('')}</ol>
-      <div class="row gap">${timerBtnRaw(30, 'Mini lámpara (tip)')}${timerBtnRaw(60, 'Lámpara grande')}</div></section>
-    <section class="card"><h3>La francesa</h3><ul class="tips">${g.french.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>
-    <section class="card"><h3>Tu kit: qué usar para qué</h3><div class="list">${g.kit.map(([n, d, k]) => `<div class="combo-row"><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span><span class="${tag[k][0]}">${tag[k][1]}</span></div>`).join('')}</div></section>
-    <p class="small muted">${esc(g.safety)}</p>`;
+    <div class="row gap" style="margin-bottom:14px">${timerBtnRaw(30, 'Mini lámpara')}${timerBtnRaw(60, 'Lámpara grande')}</div>
+    ${edCard({ title: 'Paso a paso', path: ['nailsGuide', 'steps'], fields: [{ i: 0, l: 'Paso' }, T_D(1)], wrap: 'ol', add: 'Añadir paso',
+      row: ([t, d]) => `<b>${esc(t)}</b>${d ? `<br><span class="small muted">${esc(d)}</span>` : ''}` })}
+    ${edCard({ title: 'Tu kit: qué usar para qué', path: ['nailsGuide', 'kit'], fields: [T_N, T_D(1)], row: rowND, add: 'Añadir al kit' })}
+    ${edCard({ title: 'Colores por temporada', path: ['nailsGuide', 'seasons'], fields: [{ i: 0, l: 'Temporada' }, T_D(1), T_C(2)], add: 'Añadir temporada',
+      row: ([n, d, cs]) => `<div class="combo-row">${strip(cs || [])}<span class="grow"><b>${esc(n)}</b>${n === cur ? ' <span class="pill accent">ahora</span>' : ''}<br><span class="small muted">${esc(d || '')}</span></span></div>` })}
+    ${edCard({ title: 'La francesa', path: ['nailsGuide', 'french'], fields: T_S, wrap: 'ul', row: x => esc(x) })}
+    <section class="card"><h3>Notas</h3>${edNote(['nailsGuide', 'shape'], 'Forma', '', 'small')}${edNote(['nailsGuide', 'avoid'], 'Colores a evitar')}${edNote(['nailsGuide', 'safety'], 'Seguridad')}</section>`;
   $$('[data-rawtmr]', root).forEach(b => b.onclick = () => startTimer({ label: b.dataset.label, sec: Number(b.dataset.rawtmr), kind: 'wait', after: 'Listo.' }));
+  bindEd(root);
 }
-const timerBtnRaw = (sec, label) => `<button class="btn small ghost" data-rawtmr="${sec}" data-label="${esc(label)}">⏱ ${esc(label)} · ${sec} s</button>`;
+const timerBtnRaw = (sec, label) => `<button class="btn small ghost grow" style="white-space:nowrap" data-rawtmr="${sec}" data-label="${esc(label)}">⏱ ${esc(label)} ${sec} s</button>`;
 
 // ------------------------------------------------------------------ ESTILO (colores, reglas, carpetas, compras)
-let styleTab = 'colores';
+let styleTab = 'compras';
 const swatch = (n, hex, sub = '') => `<div class="sw"><i style="background:${hex}"></i><b>${esc(n)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
-const strip = cs => `<span class="strip">${cs.map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
+const strip = cs => `<span class="strip">${(cs || []).map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
+const rowStrip = ([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b>${d ? `<br><span class="small muted">${esc(d)}</span>` : ''}</span></div>`;
+let showBought = false;
 function estilo(root) {
   const st = settings().style;
   if (!st) { root.innerHTML = '<div class="card empty"><p>Aún no hay un análisis de color para este perfil.</p></div>'; return; }
-  const tabs = [['colores', 'Colores'], ['reglas', 'Reglas'], ['carpetas', 'Carpetas'], ['compras', 'Compras']];
-  const ul = a => `<ul class="tips">${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const tabs = [['compras', 'Compras'], ['colores', 'Colores'], ['reglas', 'Reglas'], ['carpetas', 'Carpetas']];
+  const sl = (title, key, extra = {}) => edCard({ title, path: ['style', ...key], fields: T_S, wrap: 'ul', row: x => esc(x), ...extra });
+  const wl = st.wishlist || [];
+  const pend = wl.map((x, i) => [x, i]).filter(([x]) => !x[2]);
+  const got = wl.map((x, i) => [x, i]).filter(([x]) => x[2]);
   const body = {
+    compras: () => `
+      <section class="card"><div class="card-head"><h3>Lo que te falta</h3><span class="small muted">${pend.length}</span></div>
+        <p class="small muted">Márcalo cuando lo compres. Lo de arriba es lo más importante.</p>
+        <div class="list">${pend.map(([[n, d], i]) => `<div class="combo-row wish"><button class="wish-c" data-wbuy="${i}" aria-label="Comprado"></button><button class="grow wish-t" data-wedit="${i}"><b>${esc(n)}</b>${d ? `<br><span class="small muted">${esc(d)}</span>` : ''}</button></div>`).join('') || '<p class="small muted">¡Nada pendiente! 🎉</p>'}</div>
+        <button class="btn ghost block mt-s" id="wAdd">${icon('plus')} Añadir algo que te falta</button>
+        ${got.length ? `<button class="link-btn mt-s" id="wGot">${showBought ? 'Ocultar' : 'Ver'} lo ya comprado (${got.length})</button>
+          ${showBought ? `<div class="list">${got.map(([[n, , day], i]) => `<div class="combo-row wish got"><button class="wish-c on" data-wbuy="${i}" aria-label="Desmarcar">${icon('check')}</button><span class="grow"><s>${esc(n)}</s><br><span class="small muted">Comprado ${relDay(day)}</span></span></div>`).join('')}</div>` : ''}` : ''}
+      </section>
+      ${sl('Básicos que siempre te funcionan', ['basics'])}
+      ${sl('Reglas al comprar', ['shopping'])}`,
     colores: () => `
       <section class="card plan"><span class="small" style="color:#CFC7BE;letter-spacing:.08em;text-transform:uppercase">Tu estación</span>
-        <h2 style="color:#F3F0EB;margin:2px 0 6px">${esc(st.season)}</h2><p class="small" style="color:#CFC7BE">${esc(st.seasonNote)}</p>
-        <div class="traits">${st.traits.map(([n, d, h]) => `<div><i style="background:${h}"></i><b>${esc(n)}</b><span>${esc(d)}</span></div>`).join('')}</div></section>
-      ${st.palette.map(g => `<section class="card"><h3>${esc(g.t)}</h3><p class="small muted">${esc(g.d)}</p><div class="sws">${g.c.map(([n, h]) => swatch(n, h)).join('')}</div></section>`).join('')}
-      <section class="card"><h3>Te apagan cerca de la cara</h3><p class="small muted">${esc(st.avoidNote)}</p><div class="sws">${st.avoid.map(([n, h, alt]) => `<div class="sw no"><i style="background:${h}"></i><b>${esc(n)}</b><span>mejor ${esc(alt)}</span></div>`).join('')}</div></section>
-      <section class="card"><h3>Combinaciones que te favorecen</h3><div class="list">${st.combos.map(([n, cs, d]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
-      <section class="card"><h3>Maquillaje</h3><div class="list">${st.makeup.map(([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
-      <section class="card"><h3>Uñas</h3><div class="sws">${st.nails.map(([n, h]) => swatch(n, h)).join('')}</div><p class="small muted">${esc(st.nailsNote)}</p></section>
-      <section class="card"><h3>Color de pelo</h3><p class="small"><b class="ok-text">Te favorece</b></p>${ul(st.hair.yes)}<p class="small"><b class="warn-text">Mejor evitar</b></p>${ul(st.hair.no)}</section>`,
+        <h2 style="color:#F3F0EB;margin:2px 0 6px">${esc(st.season)}</h2><p class="small" style="color:#CFC7BE">${esc(st.seasonNote || '')}</p>
+        <div class="traits">${(st.traits || []).map(([n, d, h]) => `<div><i style="background:${h}"></i><b>${esc(n)}</b><span>${esc(d)}</span></div>`).join('')}</div></section>
+      ${(st.palette || []).map((g, gi) => edCard({ title: g.t, path: ['style', 'palette', gi, 'c'], note: g.d ? `<p class="small muted">${esc(g.d)}</p>` : '', wrap: 'sws', add: 'Añadir color',
+        fields: [{ i: 0, l: 'Nombre' }, { i: 1, l: 'Color', t: 'color' }], row: ([n, h]) => swatch(n, h) })).join('')}
+      ${edCard({ title: 'Te apagan cerca de la cara', path: ['style', 'avoid'], wrap: 'sws', note: st.avoidNote ? `<p class="small muted">${esc(st.avoidNote)}</p>` : '',
+        fields: [{ i: 0, l: 'Color' }, { i: 1, l: 'Tono', t: 'color' }, { i: 2, l: 'Mejor…' }], row: ([n, h, alt]) => `<div class="sw no"><i style="background:${h}"></i><b>${esc(n)}</b>${alt ? `<span>mejor ${esc(alt)}</span>` : ''}</div>` })}
+      ${edCard({ title: 'Combinaciones que te favorecen', path: ['style', 'combos'], fields: [T_N, T_C(1), T_D(2)], row: ([n, cs, d]) => rowStrip([n, d, cs]) })}
+      ${edCard({ title: 'Maquillaje', path: ['style', 'makeup'], fields: [T_N, T_D(1), T_C(2)], row: rowStrip })}
+      ${edCard({ title: 'Uñas', path: ['style', 'nails'], wrap: 'sws', fields: [T_N, { i: 1, l: 'Color', t: 'color' }], row: ([n, h]) => swatch(n, h) })}
+      ${sl('Color de pelo que te favorece', ['hair', 'yes'])}${sl('Color de pelo a evitar', ['hair', 'no'])}`,
     reglas: () => `
-      <section class="card"><h3>Tu fórmula</h3><div class="formula">${st.formula.map(([n, d, h]) => `<div><i style="background:${h}"></i><b>${esc(n)}</b><span class="small muted">${esc(d)}</span></div>`).join('')}</div></section>
-      <section class="card"><h3>Antes de guardar un outfit</h3>${ul(st.rules)}</section>
-      <section class="card"><h3>Úsalo con truco</h3><div class="list">${st.tricks.map(([n, d]) => `<div class="combo-row"><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>
-      <section class="card"><h3>Tejidos y estampados</h3><p class="small"><b class="ok-text">Te favorece</b></p>${ul(st.fabrics.yes)}<p class="small"><b class="warn-text">Mejor lejos de la cara</b></p>${ul(st.fabrics.no)}</section>
-      <section class="card"><h3>Joyas y accesorios</h3>${ul(st.accessories)}</section>
-      <section class="card"><h3>Por temporada</h3><div class="list">${st.seasons.map(([n, d, cs]) => `<div class="combo-row">${strip(cs)}<span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></div>`).join('')}</div></section>`,
-    carpetas: () => `
-      <p class="small muted">Las carpetas de tus outfits en Whering, por ocasión.</p>
-      <div class="list card">${st.folders.map(([e, n, d, cs]) => `<div class="combo-row"><span class="fold-e">${e}</span><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span>${strip(cs)}</div>`).join('')}</div>`,
-    compras: () => `
-      <section class="card"><h3>Reglas al comprar</h3>${ul(st.shopping)}</section>
-      <section class="card"><h3>Lo que te falta, por orden</h3><ol class="steps">${st.wishlist.map(([n, d]) => `<li><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d)}</span></span></li>`).join('')}</ol></section>
-      <section class="card"><h3>Básicos que siempre te funcionan</h3>${ul(st.basics)}</section>`,
+      ${edCard({ title: 'Tu fórmula', path: ['style', 'formula'], fields: [T_N, T_D(1), { i: 2, l: 'Color', t: 'color' }],
+        row: ([n, d, h]) => `<div class="combo-row"><span class="strip"><i style="background:${h}"></i></span><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d || '')}</span></span></div>` })}
+      ${sl('Antes de guardar un outfit', ['rules'])}
+      ${edCard({ title: 'Úsalo con truco', path: ['style', 'tricks'], fields: [T_N, T_D(1)], row: rowND })}
+      ${sl('Tejidos que te favorecen', ['fabrics', 'yes'])}${sl('Tejidos mejor lejos de la cara', ['fabrics', 'no'])}
+      ${sl('Joyas y accesorios', ['accessories'])}
+      ${edCard({ title: 'Por temporada', path: ['style', 'seasons'], fields: [T_N, T_D(1), T_C(2)], row: rowStrip })}`,
+    carpetas: () => edCard({ title: 'Tus carpetas de outfits', path: ['style', 'folders'], note: '<p class="small muted">Por ocasión, como en Whering.</p>', add: 'Añadir carpeta',
+      fields: [{ i: 0, l: 'Emoji', t: 'emoji' }, { i: 1, l: 'Nombre' }, T_D(2), T_C(3)],
+      row: ([e, n, d, cs]) => `<div class="combo-row"><span class="fold-e">${esc(e || '📁')}</span><span class="grow"><b>${esc(n)}</b><br><span class="small muted">${esc(d || '')}</span></span>${strip(cs)}</div>` }),
   };
-  if (!body[styleTab]) styleTab = 'colores';
+  if (!body[styleTab]) styleTab = 'compras';
   root.innerHTML = `<div class="seg">${tabs.map(([k, l]) => `<button class="${styleTab === k ? 'on' : ''}" data-stab="${k}">${l}</button>`).join('')}</div>${body[styleTab]()}`;
   $$('[data-stab]', root).forEach(b => b.onclick = () => { styleTab = b.dataset.stab; rerender(); window.scrollTo(0, 0); });
+  bindEd(root);
+  const saveW = l => setAt(['style', 'wishlist'], l).then(rerender);
+  $$('[data-wbuy]', root).forEach(b => b.onclick = () => { const l = structuredClone(wl); const x = l[Number(b.dataset.wbuy)]; if (x[2]) x.length = 2; else { x[1] ??= ''; x[2] = today(); toast('Comprado ✓'); } saveW(l); });
+  const wEdit = i => {
+    const x = i === null ? ['', ''] : wl[i];
+    sheet(i === null ? 'Añadir a lo que te falta' : 'Editar', `<div class="stack">
+      <label class="field"><span>Qué</span><input id="wN" value="${esc(x[0])}" placeholder="Botas marrones…"></label>
+      <label class="field"><span>Para qué / notas</span><input id="wD" value="${esc(x[1] || '')}"></label>
+      ${i !== null ? `<div class="row gap"><button class="btn ghost grow" id="wUp" ${i === 0 ? 'disabled' : ''}>${icon('up')} Más importante</button><button class="btn ghost grow" id="wDown">${icon('down')} Menos</button></div>` : ''}
+      <div class="row gap">${i !== null ? `<button class="btn danger ghost" id="wDel">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="wOk">Guardar</button></div></div>`, body => {
+      const l = structuredClone(wl);
+      const done = () => { closeSheet(); saveW(l); };
+      $('#wOk', body).onclick = () => { const n = $('#wN', body).value.trim(); if (!n) return toast('Escribe qué te falta'); const v = [n, $('#wD', body).value.trim()]; if (i === null) l.splice(pend.length ? pend.at(-1)[1] + 1 : l.length, 0, v); else l[i] = [v[0], v[1], ...(l[i][2] ? [l[i][2]] : [])]; done(); };
+      const pi = pend.findIndex(([, j]) => j === i);
+      $('#wUp', body)?.addEventListener('click', () => { const j = pend[pi - 1]?.[1]; if (j !== undefined) { [l[j], l[i]] = [l[i], l[j]]; done(); } });
+      $('#wDown', body)?.addEventListener('click', () => { const j = pend[pi + 1]?.[1]; if (j !== undefined) { [l[j], l[i]] = [l[i], l[j]]; done(); } else closeSheet(); });
+      $('#wDel', body)?.addEventListener('click', async () => { if (await confirmBox('Quitar de la lista')) { l.splice(i, 1); done(); } });
+    });
+  };
+  $$('[data-wedit]', root).forEach(b => b.onclick = () => wEdit(Number(b.dataset.wedit)));
+  $('#wAdd', root)?.addEventListener('click', () => wEdit(null));
+  $('#wGot', root)?.addEventListener('click', () => { showBought = !showBought; rerender(); });
 }
 
 // ------------------------------------------------------------------ PEINADOS

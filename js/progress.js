@@ -3,7 +3,7 @@ import {
   S, activeCats, getVal, isDone, isHabit, streak, bestStreak, itemsOf, careStatus, products, productExpiry,
   correlations, catByKey, dayCompletion, upcomingEvents, freqOf, FREQ_LABEL, streakUnit,
 } from './store.js';
-import { esc, $, today, addDays, diffDays, fmtShort, eur, num, parseDay, MONTHS } from './ui.js';
+import { esc, $, icon, today, addDays, diffDays, fmtShort, eur, num, parseDay, MONTHS } from './ui.js';
 import { sectionColor, CARE_GROUP_COLORS } from './data.js';
 import { topbar, rerender } from './app.js';
 
@@ -13,6 +13,7 @@ const TABS = [['semana', 'Semana'], ['rachas', 'Rachas'], ['ejercicio', 'Ejercic
 export function renderProgress(view, sub = 'semana') {
   if (!TABS.some(([k]) => k === sub)) sub = 'semana';
   view.innerHTML = `${topbar()}
+    <a class="back" href="#/mas">${icon('left')} Más</a>
     <div class="page-title"><h1>Progreso</h1></div>
     <div class="seg">${TABS.map(([k, l]) => `<a href="#/progreso/${k}" class="${k === sub ? 'on' : ''}">${l}</a>`).join('')}</div>
     <div id="pBody"></div>`;

@@ -10,6 +10,7 @@ const MIND = '#A7BCEB';
 export function renderMente(view, sub = 'foco') {
   if (!['foco', 'ingles', 'objetivos', 'suenos'].includes(sub)) sub = 'foco';
   view.innerHTML = `${topbar()}
+    <a class="back" href="#/mas">${icon('left')} Más</a>
     <div class="page-title"><h1>Mente</h1></div>
     <div class="seg"><a href="#/mente/foco" class="${sub === 'foco' ? 'on' : ''}">Foco</a><a href="#/mente/ingles" class="${sub === 'ingles' ? 'on' : ''}">Inglés</a><a href="#/mente/objetivos" class="${sub === 'objetivos' ? 'on' : ''}">Objetivos</a><a href="#/mente/suenos" class="${sub === 'suenos' ? 'on' : ''}">Sueños</a></div>
     <div id="mBody" style="--c:${MIND}"></div>`;

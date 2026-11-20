@@ -3,7 +3,7 @@ import {
   S, activeCats, getVal, isDone, dayCompletion, itemsOf, addItem, saveItem, deleteItem, tasks, catByKey, upcomingEvents,
   completeTask, markCareDone,
 } from './store.js';
-import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, parseDay, dayStr, fmtShort, MONTHS, formData, linkSource, relDay } from './ui.js';
+import { esc, $, $$, icon, toast, sheet, closeSheet, confirmBox, today, addDays, diffDays, parseDay, dayStr, fmtShort, MONTHS, formData } from './ui.js';
 import { CARE_GROUP_COLORS } from './data.js';
 import { topbar, rerender, go } from './app.js';
 
@@ -21,126 +21,9 @@ const evColor = ev => ev.kind === 'event' ? '#E8C979' : ev.kind === 'care' ? (CA
 export function renderAgenda(view, sub = 'calendario') {
   view.innerHTML = `${topbar()}
     <div class="page-title"><h1>Agenda</h1></div>
-    <div class="seg"><a href="#/agenda/calendario" class="${!['tareas', 'planes'].includes(sub) ? 'on' : ''}">Calendario</a><a href="#/agenda/tareas" class="${sub === 'tareas' ? 'on' : ''}">Tareas</a><a href="#/agenda/planes" class="${sub === 'planes' ? 'on' : ''}">Planes</a></div>
+    <div class="seg"><a href="#/agenda/calendario" class="${sub !== 'tareas' ? 'on' : ''}">Calendario</a><a href="#/agenda/tareas" class="${sub === 'tareas' ? 'on' : ''}">Tareas</a></div>
     <div id="agBody"></div>`;
-  (sub === 'tareas' ? tareas : sub === 'planes' ? planes : calendario)($('#agBody', view));
-}
-
-// ------------------------------------------------------------ PLANES (qué hacer cuando quedas)
-const COSTS = [[0, 'Gratis'], [15, 'Hasta 15 €'], [35, '15–35 €'], [99, 'Más de 35 €']];
-const OTYPES = [['activo', '🏃 Activo'], ['comer', '🍽️ Comer y tardeo'], ['paseo', '🚶 Paseo'], ['naturaleza', '🌲 Naturaleza'], ['cultura', '🏛️ Cultura'], ['manual', '🎨 Manualidades'], ['noche', '🌙 Noche'], ['relax', '🧖 Relax']];
-const OSEAS = [['todo', 'Todo el año'], ['invierno', 'Invierno'], ['navidad', 'Navidad'], ['primavera', 'Primavera'], ['verano', 'Verano'], ['otono', 'Otoño']];
-const OMOVE = [['metro', '🚇 Metro'], ['cercanias', '🚆 Cercanías'], ['coche', '🚗 Coche']];
-const seasonsNow = () => { const m = new Date().getMonth(); const d = new Date().getDate();
-  const s = m === 11 || m <= 1 ? ['invierno'] : m <= 4 ? ['primavera'] : m <= 8 ? ['verano'] : ['otono'];
-  if ((m === 10 && d >= 25) || m === 11 || (m === 0 && d <= 6)) s.push('navidad');
-  return s; };
-let oCost = null; let oType = null; let oNoCar = false; let oAll = false; let oPick = null;
-const oEmoji = d => (OTYPES.find(t => (d.types || [])[0] === t[0])?.[1] || '📍').split(' ')[0];
-const mapsUrl = d => d.url || (d.q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.q)}` : null);
-function outCard(o, big = false) {
-  const d = o.data; const c = COSTS.find(x => x[0] === d.cost);
-  return `<button class="card outing ${big ? 'big' : ''}" data-out="${o.id}">
-    <span class="o-e">${oEmoji(d)}</span>
-    <span class="grow"><b>${d.fav ? '♥ ' : ''}${esc(d.name)}</b><br>
-      <span class="small muted">${[c?.[1], d.zone, OMOVE.find(m => m[0] === d.move)?.[1], d.dur].filter(Boolean).map(esc).join(' · ')}</span>
-      ${d.count ? `<br><span class="small">✓ ${d.count} ${d.count === 1 ? 'vez' : 'veces'}${d.lastDone ? `, la última ${relDay(d.lastDone)}` : ''}</span>` : ''}</span></button>`;
-}
-function planes(root) {
-  const now = seasonsNow();
-  const all = itemsOf('outing');
-  const fit = o => {
-    const d = o.data;
-    if (oCost !== null && d.cost !== oCost) return false;
-    if (oType && !(d.types || []).includes(oType)) return false;
-    if (oNoCar && d.move === 'coche') return false;
-    if (!oAll && !(d.seasons || ['todo']).some(x => x === 'todo' || now.includes(x))) return false;
-    return true;
-  };
-  const list = all.filter(fit);
-  const seasonal = list.filter(o => !(o.data.seasons || ['todo']).includes('todo'));
-  const mine = list.filter(o => !o.data.idea && !seasonal.includes(o));
-  const rest = list.filter(o => o.data.idea && !seasonal.includes(o)).sort((a, b) => (a.data.cost - b.data.cost) || ((b.data.fav ? 1 : 0) - (a.data.fav ? 1 : 0)));
-  const pick = oPick && all.find(o => o.id === oPick);
-  const chip = (on, attr, label) => `<button class="chip small" ${attr} style="${on ? 'background:#F3F0EB;color:#3A3734;border-color:#F3F0EB' : 'background:transparent;color:#F3F0EB;border-color:rgba(255,255,255,.25)'}">${label}</button>`;
-  root.innerHTML = `
-    <section class="card plan">
-      <h3 style="color:#F3F0EB">¿Qué hacemos?</h3>
-      <p class="small" style="color:#CFC7BE">${oAll ? 'Mostrando todas las temporadas.' : `Solo lo que encaja ahora (${now.map(x => OSEAS.find(s => s[0] === x)[1].toLowerCase()).join(' y ')}).`}</p>
-      <div class="chips mt-s">${chip(oCost === null, 'data-oc=""', 'Cualquier precio')}${COSTS.map(([v, l]) => chip(oCost === v, `data-oc="${v}"`, l)).join('')}</div>
-      <div class="chips mt-s">${chip(!oType, 'data-ot=""', 'Todo')}${OTYPES.map(([k, l]) => chip(oType === k, `data-ot="${k}"`, l)).join('')}</div>
-      <div class="chips mt-s">${chip(oNoCar, 'data-onocar', '🚇 Sin coche')}${chip(oAll, 'data-oall', '📅 Todas las temporadas')}</div>
-      <button class="btn block mt" id="oRandom" style="background:#F3F0EB;color:#3A3734" ${list.length ? '' : 'disabled'}>🎲 Elígeme uno (${list.length})</button>
-      ${pick ? `<div class="mt">${outCard(pick, true)}</div>` : ''}
-    </section>
-    <button class="btn primary block" id="oAdd">${icon('plus')} Guardar un plan</button>
-    <p class="small muted">¿Lo has visto en TikTok, Instagram o Google Maps? Compartir → Copiar enlace → aquí, "Guardar un plan" y "Pegar".</p>
-    ${seasonal.length ? `<div class="section-head"><h2>De temporada</h2><span class="small muted">${seasonal.length}</span></div><div class="stack">${seasonal.map(o => outCard(o)).join('')}</div>` : ''}
-    ${mine.length ? `<div class="section-head"><h2>Guardados por ti</h2><span class="small muted">${mine.length}</span></div><div class="stack">${mine.map(o => outCard(o)).join('')}</div>` : ''}
-    ${rest.length ? `<div class="section-head"><h2>Ideas</h2><span class="small muted">${rest.length}</span></div><div class="stack">${rest.map(o => outCard(o)).join('')}</div>` : ''}
-    ${!list.length ? `<p class="muted center">${all.length ? 'Ningún plan con esos filtros.' : 'Aún no hay planes guardados.'}</p>` : ''}`;
-  $$('[data-oc]', root).forEach(b => b.onclick = () => { oCost = b.dataset.oc === '' ? null : Number(b.dataset.oc); oPick = null; rerender(); });
-  $$('[data-ot]', root).forEach(b => b.onclick = () => { oType = b.dataset.ot || null; oPick = null; rerender(); });
-  $('[data-onocar]', root).onclick = () => { oNoCar = !oNoCar; oPick = null; rerender(); };
-  $('[data-oall]', root).onclick = () => { oAll = !oAll; oPick = null; rerender(); };
-  $('#oRandom', root)?.addEventListener('click', () => {
-    // pesa más lo que nunca habéis hecho o hace tiempo, y los favoritos
-    const w = o => (o.data.lastDone ? Math.min(60, diffDays(today(), o.data.lastDone)) / 3 : 20) + (o.data.fav ? 10 : 0) + 1;
-    const arr = list.length > 1 ? list.filter(o => o.id !== oPick) : list;
-    let r = Math.random() * arr.reduce((a, o) => a + w(o), 0);
-    oPick = (arr.find(o => (r -= w(o)) <= 0) || arr[0]).id; rerender();
-  });
-  $('#oAdd', root).onclick = () => outEdit(null);
-  $$('[data-out]', root).forEach(b => b.onclick = () => outView(S.items.find(i => i.id === b.dataset.out)));
-}
-function outView(o) {
-  const d = o.data; const url = mapsUrl(d); const src = d.url ? linkSource(d.url) : { e: '📍', l: 'Google Maps' };
-  sheet(d.name, `<div class="stack">
-    <div class="chips">${[COSTS.find(x => x[0] === d.cost)?.[1], ...(d.types || []).map(t => OTYPES.find(x => x[0] === t)?.[1]), ...(d.seasons || []).map(t => OSEAS.find(x => x[0] === t)?.[1]), OMOVE.find(m => m[0] === d.move)?.[1], d.dur].filter(Boolean).map(t => `<span class="chip small on">${esc(t)}</span>`).join('')}</div>
-    ${d.zone ? `<p class="small"><b>Dónde:</b> ${esc(d.zone)}</p>` : ''}
-    ${d.notes ? `<p class="small">${esc(d.notes)}</p>` : ''}
-    ${url ? `<a class="btn ghost block" href="${esc(url)}" target="_blank" rel="noopener">${src?.e || '🔗'} Ver en ${esc(src?.l || 'el enlace')}</a>` : ''}
-    <p class="small muted">${d.count ? `Lo habéis hecho ${d.count} ${d.count === 1 ? 'vez' : 'veces'}${d.lastDone ? `, la última ${relDay(d.lastDone)}` : ''}.` : 'Aún no lo habéis hecho.'}</p>
-    <button class="btn primary block" id="oDone">✓ Lo hemos hecho hoy</button>
-    <div class="row gap"><button class="btn ghost grow" id="oFav">${d.fav ? '♥ Quitar de favoritos' : '♡ Favorito'}</button><button class="btn ghost grow" id="oEdit">${icon('edit')} Editar</button></div></div>`, body => {
-    $('#oDone', body).onclick = async () => { await saveItem(o, { lastDone: today(), count: d.lastDone === today() ? (d.count || 1) : (d.count || 0) + 1 }); closeSheet(); toast('Apuntado'); rerender(); };
-    $('#oFav', body).onclick = async () => { await saveItem(o, { fav: !d.fav }); closeSheet(); rerender(); };
-    $('#oEdit', body).onclick = () => { closeSheet(); setTimeout(() => outEdit(o), 200); };
-  });
-}
-function outEdit(o) {
-  const d = o?.data || { cost: 0, types: [], seasons: ['todo'], move: 'metro' };
-  const radio = (name, opts, val) => opts.map(([k, l]) => `<label class="chip check small"><input type="radio" name="${name}" value="${k}" ${String(val) === String(k) ? 'checked' : ''}>${esc(l)}</label>`).join('');
-  const multi = (name, opts, vals) => opts.map(([k, l]) => `<label class="chip check small"><input type="checkbox" name="${name}" data-multi="1" value="${k}" ${(vals || []).includes(k) ? 'checked' : ''}>${esc(l)}</label>`).join('');
-  sheet(o ? 'Editar plan' : 'Guardar un plan', `<div class="stack">
-    <label class="field"><span>Enlace (Google Maps, TikTok, Instagram, web…)</span>
-      <div class="row gap"><input class="input grow" name="url" id="oUrl" inputmode="url" value="${esc(d.url || '')}" placeholder="https://…"><button type="button" class="btn ghost" id="oPaste">Pegar</button></div></label>
-    <label class="field"><span>Qué es</span><input name="name" value="${esc(d.name || '')}" placeholder="Taller de cerámica, mirador, brunch…"></label>
-    <label class="field"><span>Dónde</span><input name="zone" value="${esc(d.zone || '')}" placeholder="Barrio o sitio"></label>
-    <div class="field"><span>Precio por persona</span><div class="chips">${radio('cost', COSTS, d.cost)}</div></div>
-    <div class="field"><span>Tipo</span><div class="chips">${multi('types', OTYPES, d.types)}</div></div>
-    <div class="field"><span>Cuándo</span><div class="chips">${multi('seasons', OSEAS, d.seasons)}</div></div>
-    <div class="field"><span>Cómo se llega</span><div class="chips">${radio('move', OMOVE, d.move)}</div></div>
-    <label class="field"><span>Notas</span><textarea class="input" name="notes" rows="2" placeholder="Reservar antes, horario, precio exacto…">${esc(d.notes || '')}</textarea></label>
-    <div class="row gap">${o ? `<button class="btn danger ghost" id="oDel">${icon('trash')}</button>` : ''}<button class="btn primary grow" id="oSave">Guardar</button></div></div>`, body => {
-    const urlIn = $('#oUrl', body);
-    $('#oPaste', body).onclick = async () => {
-      try { const t = (await navigator.clipboard.readText()).trim(); const m = t.match(/https?:\/\/\S+/); if (m) urlIn.value = m[0]; else toast('No hay ningún enlace copiado'); }
-      catch { urlIn.focus(); toast('Mantén pulsado el campo y pulsa Pegar'); }
-    };
-    $('#oSave', body).onclick = async () => {
-      const f = formData(body); const url = (f.url || '').trim(); const src = linkSource(url);
-      if (!f.name && !url) return toast('Pon qué es o pega un enlace');
-      const pickAll = n => $$(`input[name=${n}]`, body).filter(i => i.checked).map(i => i.value);
-      const data = { name: f.name || (src ? `Plan de ${src.l}` : 'Plan'), url: url || null, zone: f.zone || '', notes: f.notes || '',
-        cost: Number($('input[name=cost]:checked', body)?.value ?? 0), types: pickAll('types'), seasons: pickAll('seasons').length ? pickAll('seasons') : ['todo'],
-        move: $('input[name=move]:checked', body)?.value || 'metro' };
-      if (!o) data.idea = false;
-      o ? await saveItem(o, data) : await addItem('outing', data);
-      closeSheet(); toast('Plan guardado'); rerender();
-    };
-    $('#oDel', body)?.addEventListener('click', async () => { if (await confirmBox('Borrar este plan')) { await deleteItem(o); closeSheet(); rerender(); } });
-  });
+  (sub === 'tareas' ? tareas : calendario)($('#agBody', view));
 }
 
 // ------------------------------------------------------------ CALENDARIO
